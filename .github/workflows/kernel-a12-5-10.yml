@@ -1,0 +1,239 @@
+name: 内核构建 - Android 12 (5.10)
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernelsu_variant:
+        description: "KernelSU 变体"
+        required: true
+        type: choice
+        options:
+          - Official
+          #- Next
+          - SukiSU
+          - SukiSU(40726)
+          - SukiSU(40548)
+          - ReSukiSU
+        default: ReSukiSU
+      version:
+        description: "自定义版本名 (可选)"
+        required: false
+        type: string
+      build_time:
+        description: "自定义构建时间 (可选，N或留空=当前UTC)"
+        required: false
+        type: string
+        default: "Sun Dec 01 08:10:00 UTC 2024"
+      use_kpm:
+        description: "KPM 功能（patched 尚不支持）"
+        required: true
+        type: choice
+        default: "disabled (关闭)"
+        options:
+          - "disabled (关闭)"
+          - "enabled (开启)"
+          - "patched (开启并修补，尚不支持)"
+      droidspaces:
+        description: "Droidspaces 容器支持"
+        required: false
+        type: choice
+        options:
+          - "off"
+          - "678"
+          - "123"
+          - "345"
+        default: "off"
+      artifact_upload_mode:
+        description: "构建产物上传模式"
+        required: true
+        type: choice
+        options:
+          - "仅上传 AnyKernel3.zip"
+          - "上传全部"
+        default: "仅上传 AnyKernel3.zip"
+      droidspaces_ntsync:
+        description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
+        required: false
+        type: boolean
+        default: false
+      use_zram:
+        description: "启用 ZRAM 增强算法"
+        required: true
+        type: boolean
+        default: false
+      use_bbg:
+        description: "启用 BBG 防格机"
+        required: true
+        type: boolean
+        default: false
+      use_rekernel:
+        description: "启用 Re-Kernel 驱动"
+        required: false
+        type: boolean
+        default: false
+      cve_2026_43499_patch:
+        description: "应用 CVE-2026-43499 rtmutex 修复链"
+        required: false
+        type: boolean
+        default: false
+      cancel_susfs:
+        description: "禁用 SUSFS"
+        required: true
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      kernelsu_variant:
+        required: true
+        type: string
+      version:
+        required: false
+        type: string
+      build_time:
+        required: false
+        type: string
+        default: "Sun Dec 01 08:10:00 UTC 2024"
+      use_zram:
+        required: true
+        type: boolean
+      use_bbg:
+        required: true
+        type: boolean
+      use_kpm:
+        required: true
+        type: string
+      use_rekernel:
+        required: false
+        type: boolean
+        default: false
+      cve_2026_43499_patch:
+        required: false
+        type: boolean
+        default: false
+      cancel_susfs:
+        required: false
+        type: boolean
+      droidspaces:
+        required: false
+        type: string
+        default: "off"
+      artifact_upload_mode:
+        required: false
+        type: string
+        default: "上传全部"
+      droidspaces_ntsync:
+        required: false
+        type: boolean
+        default: false
+      called_from_main:
+        description: "是否从 main.yml 调用（内部使用）"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-kernels-a12-5-10:
+    name: "5.10.${{ matrix.sub_level }}-${{ matrix.os_patch_level }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sub_level: "66"
+            os_patch_level: "2022-01"
+            revision: "r11"
+          - sub_level: "81"
+            os_patch_level: "2022-03"
+            revision: "r11"
+          - sub_level: "101"
+            os_patch_level: "2022-04"
+            revision: "r28"
+          - sub_level: "110"
+            os_patch_level: "2022-07"
+            revision: "r1"
+          - sub_level: "117"
+            os_patch_level: "2022-09"
+            revision: "r1"
+          - sub_level: "136"
+            os_patch_level: "2022-11"
+            revision: "r15"
+          - sub_level: "149"
+            os_patch_level: "2023-01"
+            revision: "r1"
+          - sub_level: "160"
+            os_patch_level: "2023-03"
+            revision: "r1"
+          - sub_level: "168"
+            os_patch_level: "2023-04"
+            revision: "r9"
+          - sub_level: "177"
+            os_patch_level: "2023-07"
+            revision: "r3"
+          - sub_level: "185"
+            os_patch_level: "2023-09"
+            revision: "r1"
+          - sub_level: "198"
+            os_patch_level: "2024-01"
+            revision: "r17"
+          - sub_level: "205"
+            os_patch_level: "2024-03"
+            revision: "r1"
+          - sub_level: "209"
+            os_patch_level: "2024-05"
+            revision: "r13"
+          - sub_level: "218"
+            os_patch_level: "2024-08"
+            revision: "r14"
+          - sub_level: "226"
+            os_patch_level: "2024-11"
+            revision: "r8"
+          - sub_level: "233"
+            os_patch_level: "2025-02"
+            revision: "r1"
+          - sub_level: "236"
+            os_patch_level: "2025-05"
+            revision: "r1"
+          - sub_level: "237"
+            os_patch_level: "2025-06"
+            revision: "r1"
+          - sub_level: "240"
+            os_patch_level: "2025-09"
+            revision: "r1"
+          - sub_level: "246"
+            os_patch_level: "2025-12"
+            revision: "r1"
+          - sub_level: "X"
+            os_patch_level: "lts"
+            revision: "r1"
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      android_version: "android12"
+      kernel_version: "5.10"
+      sub_level: ${{ matrix.sub_level }}
+      os_patch_level: ${{ matrix.os_patch_level }}
+      revision: ${{ matrix.revision }}
+      ksu_variant: ${{ inputs.kernelsu_variant }}
+      version: ${{ inputs.version || '' }}
+      build_time: ${{ inputs.build_time || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel || false }}
+      cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      supp_op: false
+      enable_susfs: ${{ !inputs.cancel_susfs }}
+      droidspaces: ${{ inputs.droidspaces || 'off' }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
+
+  # 仅在直接触发时运行，从 main.yml 调用时跳过
+  get-ksu-manager:
+    if: ${{ !inputs.called_from_main }}
+    uses: ./.github/workflows/get-manager.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
