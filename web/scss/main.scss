@@ -1,0 +1,19 @@
+// ===== 主入口：汇总所有 SCSS 模块 =====
+
+@use 'variables';
+@use 'base';
+@use 'header';
+@use 'tabs';
+@use 'layout';
+@use 'card';
+@use 'badges';
+@use 'lts';
+@use 'stats';
+@use 'table';
+@use 'modal';
+@use 'announcement';
+@use 'search';
+@use 'time-converter';
+@use 'toast';
+@use 'footer';
+@use 'back-to-top';
