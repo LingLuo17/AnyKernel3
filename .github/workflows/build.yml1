@@ -1,0 +1,100 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: 'Target Device Codename (e.g., lmi, umi)'
+        required: true
+        default: 'lmi'
+        type: choice
+        options:
+          - psyche
+          - thyme
+          - umi
+          - munch
+          - lmi
+          - cmi
+          - cas
+          - apollo
+          - alioth
+          - elish
+          - enuma
+          - dagu
+          - pipa
+
+      script:
+        description: 'Select Build Script'
+        required: true
+        default: 'build.sh'
+        type: choice
+        options:
+          - build.sh
+          - build-miui.sh
+
+      ksu:
+        description: 'Enable KernelSU (ReSukiSU-SuSFS)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    name: Build Kernel for ${{ inputs.device }} (${{ inputs.script }}) (${{ inputs.ksu && 'KSU' || 'NoKSU' }})
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Source
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: Cleanup Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf "/usr/local/share/boost"
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python-is-python3
+
+    - name: Setup Cache (ccache)
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/ccache_mikernel
+        key: kernel-ccache-${{ inputs.device }}-${{ inputs.script }}-${{ github.run_id }}
+        restore-keys: |
+          kernel-ccache-${{ inputs.device }}-${{ inputs.script }}-
+          kernel-ccache-${{ inputs.device }}-
+          kernel-ccache-
+
+    - name: Setup Toolchain (ZyC-Clang 16)
+      run: |
+        mkdir -p $HOME/zyc-clang
+        cd $HOME/zyc-clang
+        wget -q https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20260510-release/Clang-16.0.6-20260510.tar.gz
+        tar -zxvf Clang-16.0.6-20260510.tar.gz
+
+    - name: Build Kernel
+      run: |
+        chmod +x build.sh build-miui.sh
+        
+        echo "Using script: ${{ inputs.script }}"
+
+        if [ "${{ inputs.ksu }}" == "true" ]; then
+          echo "Building with KernelSU..."
+          bash ${{ inputs.script }} ${{ inputs.device }} ksu
+        else
+          echo "Building without KernelSU..."
+          bash ${{ inputs.script }} ${{ inputs.device }}
+        fi
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v6
+      with:
+        name: Kernel-${{ inputs.device }}-${{ inputs.script }}-${{ inputs.ksu && 'KSU' || 'NoKSU' }}-${{ github.run_number }}
+        path: ./*.zip
+        if-no-files-found: error
