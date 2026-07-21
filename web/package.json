@@ -1,0 +1,18 @@
+{
+  "name": "gki-kernel-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GKI Kernel Versions Dashboard",
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.4",
+    "mini-css-extract-plugin": "^2.10.0",
+    "sass": "^1.97.3",
+    "sass-loader": "^16.0.7",
+    "webpack": "^5",
+    "webpack-cli": "^6"
+  }
+}
