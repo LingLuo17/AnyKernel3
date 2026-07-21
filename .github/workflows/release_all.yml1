@@ -1,0 +1,130 @@
+name: Build and Release All Kernels
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [psyche, thyme, umi, munch, lmi, cmi, cas, apollo, alioth, elish, enuma, dagu, pipa]
+        ksu_enabled: [true, false]
+
+    name: Build ${{ matrix.device }} (${{ matrix.ksu_enabled && 'KSU' || 'NoKSU' }})
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl wget bison flex zip bc cpio libssl-dev ccache python-is-python3
+
+      - name: Setup Cache (ccache)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache_mikernel
+          key: kernel-ccache-global-${{ github.run_id }}
+          restore-keys: |
+            kernel-ccache-${{ matrix.device }}-${{ matrix.ksu_enabled }}-
+            kernel-ccache-${{ matrix.device }}-
+            kernel-ccache-global-
+            kernel-ccache-
+
+      - name: Setup Toolchain (ZyC-Clang 16)
+        run: |
+          mkdir -p $HOME/zyc-clang
+          wget -q https://github.com/ZyCromerZ/Clang/releases/download/16.0.6-20260510-release/Clang-16.0.6-20260510.tar.gz -O clang.tar.gz
+          tar -zxf clang.tar.gz -C $HOME/zyc-clang
+          rm clang.tar.gz
+
+      - name: Run Build Script
+        run: |
+          chmod +x build.sh
+          KSU_ARG=${{ matrix.ksu_enabled == true && 'ksu' || '' }}
+          bash build.sh ${{ matrix.device }} $KSU_ARG
+
+      - name: Upload Local Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kernel-artifacts-${{ matrix.device }}-${{ matrix.ksu_enabled && 'KSU' || 'NoKSU' }}
+          path: ./*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Short SHA
+        id: vars
+        run: |
+          echo "BUILD_DATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v$(date +'%Y%m%d')-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "SHA_SHORT=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_kernels
+          pattern: Kernel-artifacts-*
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG_NAME }}
+          name: "APTKernel Build - ${{ steps.vars.outputs.BUILD_DATE }} (${{ steps.vars.outputs.SHA_SHORT }})"
+          body: |
+            ## 自动构建内核发布 / Automated Kernel Release
+            
+            - **构建日期 / Build Date:** ${{ steps.vars.outputs.BUILD_DATE }}
+            - **提交哈希 / Commit SHA:** `${{ steps.vars.outputs.SHA_SHORT }}`
+            - **功能详情 / Features Detail:** [README.md](https://github.com/AstideLabs/android_kernel_xiaomi_sm8250/blob/android16-aptusitu-new/README.md)
+            - **包含设备 / Devices:** `psyche, thyme, umi, munch, lmi, cmi, cas, apollo, alioth, elish, enuma, dagu, pipa`
+            
+            ### 更新内容 / What's Changed
+
+            - ***待补完 / Wait for writing***
+
+            ---
+            **分类指南 / Instruction:**
+            - **MIUI**: 适用于小米官方或基于小米官方修改的 ROM。
+            - **AOSP**: 适用于类原生 ROM。
+            - **ReSukiSU-SuSFS**: 已集成 ReSukiSU 和 SuSFS。
+          files: all_kernels/*.zip
+
+      - name: Send Files to Telegram
+        if: success()
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID_CHANNEL: ${{ secrets.TG_CHAT_ID_CHANNEL }}
+          TG_CHAT_ID_GROUP: ${{ secrets.TG_CHAT_ID_GROUP }}
+          TG_GROUP_TOPIC_ID: ${{ secrets.TG_GROUP_TOPIC_ID }}
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.TAG_NAME }}"
+          MSG="🚀 *APTKernel 构建任务完成* %0A%0A"
+          MSG+="📅 *日期:* ${{ steps.vars.outputs.BUILD_DATE }} %0A"
+          MSG+="🐧 *内核版本:* 4.19.325 %0A"
+          MSG+="📱 *适用机型:* psyche, thyme, umi, munch, lmi, cmi, cas, apollo, alioth, elish, enuma, dagu, pipa %0A%0A"
+          MSG+="🛠️ *核心特性:* %0A"
+          MSG+=" - ReSukiSU + SuSFS + BBG %0A"
+          MSG+=" - Re:Kernel (AOSP Builds) %0A%0A"
+          MSG+="🔗 [查看 GitHub Release]($URL)"
+          
+          curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+            -d "chat_id=$TG_CHAT_ID_CHANNEL" \
+            -d "parse_mode=Markdown" \
+            -d "text=$MSG"
+          
+          curl -s -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+            -d "chat_id=$TG_CHAT_ID_GROUP" \
+            -d "message_thread_id=$TG_GROUP_TOPIC_ID" \
+            -d "parse_mode=Markdown" \
+            -d "text=$MSG"
