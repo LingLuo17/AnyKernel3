@@ -1,0 +1,60 @@
+// ===== 共用 Mixin =====
+
+// 响应式断点
+@mixin mobile {
+  @media (max-width: 768px) { @content; }
+}
+
+@mixin small {
+  @media (max-width: 480px) { @content; }
+}
+
+// 徽章基础样式
+@mixin badge-base {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: 'Roboto Mono', monospace;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+// 小型行内徽章（表格行内用）
+@mixin badge-inline {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+// 头部操作按钮共用样式
+@mixin header-btn {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  padding: 0.35rem 0.7rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-decoration: none;
+  font-family: inherit;
+
+  &:hover {
+    background: var(--accent-bg-hover);
+    border-color: var(--accent);
+  }
+}
