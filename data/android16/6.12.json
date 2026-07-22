@@ -1,7 +1,7 @@
 {
   "android_version": "android16",
   "kernel_version": "6.12",
-  "lts": "6.12.90",
+  "lts": "6.12.91",
   "entries": [
     {
       "date": "2025-06",
