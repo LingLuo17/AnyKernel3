@@ -555,7 +555,8 @@ jobs:
         run: |
           echo "应用 SUSFS 补丁..."
 
-          cp $SUSFS4KSU/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
+          SUSFS_PATCH="50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch"
+          cp "$SUSFS4KSU/kernel_patches/$SUSFS_PATCH" ./common/
           cp $SUSFS4KSU/kernel_patches/fs/* ./common/fs/
           cp $SUSFS4KSU/kernel_patches/include/linux/* ./common/include/linux/
 
@@ -581,6 +582,13 @@ jobs:
           CURRENT_SUB="${{ inputs.sub_level }}"
           if [[ ! "$CURRENT_SUB" =~ ^[0-9]+$ ]]; then
             CURRENT_SUB=99999
+          fi
+
+          # 兼容 5.10.66~5.10.209、5.15.74~5.15.144 和 6.1.25~6.1.68 缺少 VMA padding 接口
+          if grep -qF 'VMA_PAD_START(vma)' "$SUSFS_PATCH" \
+            && ! grep -Rqs 'VMA_PAD_START' ./include/linux; then
+            echo "目标内核未提供 VMA_PAD_START，使用 vma->vm_end 兼容 SUSFS OPEN_REDIRECT"
+            sed -i 's/VMA_PAD_START(vma)/vma->vm_end/g' "$SUSFS_PATCH"
           fi
 
           # 在应用主补丁前临时调整源码上下文，替代已归档的 wild 修复小补丁
@@ -658,7 +666,7 @@ jobs:
             fi
           fi
 
-          patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
+          patch -p1 < "$SUSFS_PATCH" || true
 
           # 主补丁应用后还原临时上下文，避免无关源码差异保留到最终产物
           if [[ "${{ inputs.android_version }}" == "android12" && "${{ inputs.kernel_version }}" == "5.10" ]]; then
