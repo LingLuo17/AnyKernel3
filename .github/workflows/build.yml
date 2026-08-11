@@ -456,6 +456,7 @@ jobs:
             "Official")
               echo "添加 KernelSU 官方版..."
               curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash $BRANCH
+              sed -i 's/^REPO_NAME := KernelSU$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
 
               cd KernelSU
               KSU_GIT_VERSION=$(git rev-list --count HEAD)
@@ -470,14 +471,17 @@ jobs:
             "Next")
               echo "添加 KernelSU-Next..."
               curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev_susfs
+              sed -i 's/^REPO_NAME := KernelSU-Next$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
               ;;
             "SukiSU")
               echo "添加 ${{ inputs.ksu_variant }}..."
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
+              sed -i 's/^REPO_NAME := SukiSU$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
               ;;
             "ReSukiSU")
               echo "添加 ReSukiSU..."
               curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash $BRANCH
+              sed -i 's/^REPO_NAME := ReSukiSU$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
               ;;
             *)
               if [ -z "$LEGACY_SUKISU_CONFIG" ]; then
