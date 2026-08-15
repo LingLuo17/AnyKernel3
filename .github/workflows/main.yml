@@ -38,6 +38,8 @@ on:
         type: choice
         options:
           - SukiSU
+          - SukiSU(40726)
+          - SukiSU(40548)
           - ReSukiSU
           - Official
           #- Next
