@@ -34,8 +34,6 @@ on:
           - Official
           #- Next
           - SukiSU
-          - SukiSU(40726)
-          - SukiSU(40548)
           - ReSukiSU
         default: ReSukiSU
 
