@@ -1392,47 +1392,114 @@ jobs:
           fi
 
       - name: 编译内核
+        id: compile_kernel
         uses: nick-fields/retry@v4
         with:
+          shell: bash
           timeout_minutes: 30
           max_attempts: 3
           retry_on: timeout
           command: |
-            echo "当前 KSU 最新提交日期: ${KSU_LATEST_COMMIT_DATE}"
-            echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
-            set -ex
-            cd "$KERNEL_ROOT"
+            LOG_DIR="$GITHUB_WORKSPACE/build-logs"
+            ATTEMPT_FILE="$LOG_DIR/.compile-attempt"
+            mkdir -p "$LOG_DIR"
 
-            sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' ./common/build.config.gki.aarch64
-            sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' ./common/build.config.gki.aarch64
-            sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
-
-            if [ -f "build/build.sh" ]; then
-              LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
-              strings "out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image" | grep 'Linux version'
-            else
-              # 提取 gki_defconfig 修改到 fragment，避免 bazel trim 检查失败
-              FRAG="common/arch/arm64/configs/ksu.fragment"
-              diff "$DEFCONFIG.orig" "$DEFCONFIG" | grep '^>' | sed 's/^> //; s/^[[:space:]]*//' > "$FRAG" || true
-              cp "$DEFCONFIG.orig" "$DEFCONFIG"
-              echo "=== KSU Fragment 内容 ==="
-              cat "$FRAG"
-              echo "========================="
-              FRAG_FLAG=""
-              if [ -s "$FRAG" ]; then
-                FRAG_FLAG="--defconfig_fragment=//common:arch/arm64/configs/ksu.fragment"
+            # 为 retry 的每次执行生成独立日志
+            ATTEMPT=1
+            if [ -s "$ATTEMPT_FILE" ]; then
+              read -r LAST_ATTEMPT < "$ATTEMPT_FILE"
+              if [[ "$LAST_ATTEMPT" =~ ^[0-9]+$ ]]; then
+                ATTEMPT=$((LAST_ATTEMPT + 1))
               fi
-              LTO_FLAG="--lto=thin"
-              if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
-                LTO_FLAG="--lto=none"
-              fi
-              tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
-              strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
             fi
+            echo "$ATTEMPT" > "$ATTEMPT_FILE"
+            LOG_FILE="$LOG_DIR/compile-attempt-${ATTEMPT}.log"
 
-            echo "当前 KSU 最新提交日期: ${KSU_LATEST_COMMIT_DATE}"
-            echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
-            echo "如果日期不同或相差过远则补丁失效、编译失败"
+            set -o pipefail
+            {
+              echo "编译尝试: $ATTEMPT"
+              echo "开始时间: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+              echo "当前 KSU 最新提交日期: ${KSU_LATEST_COMMIT_DATE}"
+              echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
+              set -ex
+              cd "$KERNEL_ROOT"
+
+              sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' ./common/build.config.gki.aarch64
+              sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' ./common/build.config.gki.aarch64
+              sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' ./common/build.config.gki.aarch64
+
+              if [ -f "build/build.sh" ]; then
+                LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh CC="/usr/bin/ccache clang" || exit 1
+                strings "out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist/Image" | grep 'Linux version'
+              else
+                # 提取 gki_defconfig 修改到 fragment，避免 bazel trim 检查失败
+                FRAG="common/arch/arm64/configs/ksu.fragment"
+                diff "$DEFCONFIG.orig" "$DEFCONFIG" | grep '^>' | sed 's/^> //; s/^[[:space:]]*//' > "$FRAG" || true
+                cp "$DEFCONFIG.orig" "$DEFCONFIG"
+                echo "=== KSU Fragment 内容 ==="
+                cat "$FRAG"
+                echo "========================="
+                FRAG_FLAG=""
+                if [ -s "$FRAG" ]; then
+                  FRAG_FLAG="--defconfig_fragment=//common:arch/arm64/configs/ksu.fragment"
+                fi
+                LTO_FLAG="--lto=thin"
+                if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
+                  LTO_FLAG="--lto=none"
+                fi
+                tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
+                strings ./bazel-bin/common/kernel_aarch64/Image | grep 'Linux version'
+              fi
+
+              echo "当前 KSU 最新提交日期: ${KSU_LATEST_COMMIT_DATE}"
+              echo "当前 SUSFS 最新提交日期: ${SUSFS_LATEST_COMMIT_DATE}"
+              echo "如果日期不同或相差过远则补丁失效、编译失败"
+            } 2>&1 | tee "$LOG_FILE"
+
+            BUILD_STATUS=${PIPESTATUS[0]}
+            {
+              echo "结束时间: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+              echo "退出码: $BUILD_STATUS"
+            } >> "$LOG_FILE"
+            exit "$BUILD_STATUS"
+
+      - name: 整理编译失败日志
+        if: ${{ always() && steps.compile_kernel.outcome == 'failure' }}
+        env:
+          COMPILE_ATTEMPTS: ${{ steps.compile_kernel.outputs.total_attempts }}
+          COMPILE_EXIT_CODE: ${{ steps.compile_kernel.outputs.exit_code }}
+        run: |
+          LOG_DIR="$GITHUB_WORKSPACE/build-logs"
+          mkdir -p "$LOG_DIR"
+
+          {
+            echo "Android 版本: ${{ inputs.android_version }}"
+            echo "内核版本: ${{ inputs.kernel_version }}.${{ inputs.sub_level }}"
+            echo "安全补丁级别: ${{ inputs.os_patch_level }}"
+            echo "KernelSU 变体: ${{ inputs.ksu_variant }}"
+            echo "配置名称: ${CONFIG:-未知}"
+            echo "Git 提交: $GITHUB_SHA"
+            echo "工作流地址: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "编译尝试次数: ${COMPILE_ATTEMPTS:-未知}"
+            echo "最终退出码: ${COMPILE_EXIT_CODE:-未知}"
+            echo "KSU 提交日期: ${KSU_LATEST_COMMIT_DATE:-未知}"
+            echo "SUSFS 提交日期: ${SUSFS_LATEST_COMMIT_DATE:-未知}"
+          } > "$LOG_DIR/summary.txt"
+
+          printf '%s\n' "${{ inputs.ksu_variant }}_kernel-${CONFIG}-Build-Logs" > "$LOG_DIR/artifact-name.txt"
+
+          df -h "$GITHUB_WORKSPACE" > "$LOG_DIR/disk-usage.txt" 2>&1 || true
+          ccache -s > "$LOG_DIR/ccache-stats.txt" 2>&1 || true
+
+      - name: 上传编译失败日志
+        if: ${{ always() && steps.compile_kernel.outcome == 'failure' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.ksu_variant }}_kernel-${{ env.CONFIG }}-Build-Logs
+          path: build-logs/
+          if-no-files-found: warn
+          retention-days: 7
+          compression-level: 9
 
       # - name: 应用 KPM 补丁 (SukiSU/ReSukiSU/Next)
       #   if: startsWith(inputs.use_kpm, 'patched') && (inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'ReSukiSU' || inputs.ksu_variant == 'Next')
