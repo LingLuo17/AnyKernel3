@@ -479,8 +479,7 @@ jobs:
               echo "添加 ReSukiSU..."
               curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash $BRANCH
               sed -i 's/^REPO_NAME := ReSukiSU$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
-              git -C KernelSU add kernel/Kbuild
-              git -C KernelSU -c user.email="build@local" -c user.name="Builder" commit --amend --no-edit >/dev/null 2>&1 || true
+              git -C KernelSU update-index --skip-worktree kernel/Kbuild
               ;;
             *)
               if [ -z "$LEGACY_SUKISU_CONFIG" ]; then
