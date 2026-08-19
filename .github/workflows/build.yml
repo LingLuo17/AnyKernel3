@@ -474,6 +474,14 @@ jobs:
             "SukiSU")
               echo "添加 ${{ inputs.ksu_variant }}..."
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
+              KSU_KBUILD=""
+              for f in KernelSU/kernel/Kbuild KernelSU/kernel/Makefile; do
+                if [ -f "$f" ]; then KSU_KBUILD="$f"; break; fi
+              done
+              if [ -n "$KSU_KBUILD" ]; then
+                sed -i 's/@$(call git_branch)/@LingLuo/' "$KSU_KBUILD"
+                git -C KernelSU update-index --skip-worktree "${KSU_KBUILD#KernelSU/}"
+              fi
               ;;
             "ReSukiSU")
               echo "添加 ReSukiSU..."
@@ -499,7 +507,7 @@ jobs:
           fi
 
       - name: 配置 SukiSU 管理器信息
-        if: inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'SukiSU(40726)' || inputs.ksu_variant == 'SukiSU(40548)'
+        if: inputs.ksu_variant == 'SukiSU(40726)' || inputs.ksu_variant == 'SukiSU(40548)'
         working-directory: ${{ env.KERNEL_ROOT }}/KernelSU
         run: |
           KBUILD_FILE="./kernel/Kbuild"
