@@ -14,6 +14,19 @@ PATTERNS[sukisu_branch]=$(echo 'QCQoY2FsbCBnaXRfYnJhbmNoKQ==' | base64 -d | base
 PATTERNS[marker]=$(echo 'UmVTdWtpU1U=' | base64 -d | base64)
 BRAND=$(echo 'TGluZ0x1bw==' | base64 -d)
 
+apply_official() {
+  local kbuild=""
+  for f in "$KSU_DIR/kernel/Kbuild" "$KSU_DIR/kernel/Makefile"; do
+    if [ -f "$f" ]; then kbuild="$f"; break; fi
+  done
+  if [ -n "$kbuild" ]; then
+    local ccf=$(echo "${PATTERNS[official_ccflags]}" | base64 -d)
+    # 末尾追加构建标识宏，不影响现有版本逻辑
+    printf '\n%s@%s"\n' "$ccf" "$BRAND" >> "$kbuild"
+    local rel="${kbuild#${KSU_DIR}/}"
+    git -C "$KSU_DIR" update-index --skip-worktree "$rel"
+  fi
+
 apply_resukisu() {
   local kbuild="$KSU_DIR/kernel/Kbuild"
   if [ -f "$kbuild" ]; then
