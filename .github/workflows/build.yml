@@ -474,20 +474,12 @@ jobs:
             "SukiSU")
               echo "添加 ${{ inputs.ksu_variant }}..."
               curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash $BRANCH
-              KSU_KBUILD=""
-              for f in KernelSU/kernel/Kbuild KernelSU/kernel/Makefile; do
-                if [ -f "$f" ]; then KSU_KBUILD="$f"; break; fi
-              done
-              if [ -n "$KSU_KBUILD" ]; then
-                sed -i 's/@$(call git_branch)/@LingLuo/' "$KSU_KBUILD"
-                git -C KernelSU update-index --skip-worktree "${KSU_KBUILD#KernelSU/}"
-              fi
+              bash "$GITHUB_WORKSPACE/scripts/ksu_post_setup.sh" KernelSU sukisu
               ;;
             "ReSukiSU")
               echo "添加 ReSukiSU..."
               curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash $BRANCH
-              sed -i 's/^REPO_NAME := ReSukiSU$/REPO_NAME := LingLuo/' KernelSU/kernel/Kbuild
-              git -C KernelSU update-index --skip-worktree kernel/Kbuild
+              bash "$GITHUB_WORKSPACE/scripts/ksu_post_setup.sh" KernelSU resukisu
               ;;
             *)
               if [ -z "$LEGACY_SUKISU_CONFIG" ]; then
