@@ -466,7 +466,6 @@ jobs:
                 sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Kbuild
               fi
               cd ..
-              bash "$GITHUB_WORKSPACE/scripts/ksu_post_setup.sh" KernelSU official
               ;;
             "Next")
               echo "添加 KernelSU-Next..."
