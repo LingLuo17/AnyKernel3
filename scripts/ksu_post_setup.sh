@@ -5,14 +5,13 @@
 set -e
 
 KSU_DIR="${1:-KernelSU}"
-MODE="${2:-auto}"   # auto | resukisu | sukisu | official
+MODE="${2:-auto}"   # auto | resukisu | sukisu
 
 # 版本标识常量（base64 编码，避免明文暴露）
 declare -A PATTERNS
 PATTERNS[resukisu]=$(echo 'UkVQT19OQU1FIDo9IFJlU3VraVNV' | base64 -d | base64)
 PATTERNS[sukisu_branch]=$(echo 'QCQoY2FsbCBnaXRfYnJhbmNoKQ==' | base64 -d | base64)
 PATTERNS[marker]=$(echo 'UmVTdWtpU1U=' | base64 -d | base64)
-PATTERNS[official_ccflags]=$(echo 'Y2NmbGFncy15ICs9IC1ES1NVX0JVSUxEX1RBRz0i' | base64 -d | base64)
 BRAND=$(echo 'TGluZ0x1bw==' | base64 -d)
 
 apply_resukisu() {
@@ -37,24 +36,9 @@ apply_sukisu() {
   fi
 }
 
-apply_official() {
-  local kbuild=""
-  for f in "$KSU_DIR/kernel/Kbuild" "$KSU_DIR/kernel/Makefile"; do
-    if [ -f "$f" ]; then kbuild="$f"; break; fi
-  done
-  if [ -n "$kbuild" ]; then
-    local ccf=$(echo "${PATTERNS[official_ccflags]}" | base64 -d)
-    # 末尾追加构建标识宏，不影响现有版本逻辑
-    printf '\n%s@%s"\n' "$ccf" "$BRAND" >> "$kbuild"
-    local rel="${kbuild#${KSU_DIR}/}"
-    git -C "$KSU_DIR" update-index --skip-worktree "$rel"
-  fi
-}
-
 case "$MODE" in
   resukisu) apply_resukisu ;;
   sukisu)   apply_sukisu ;;
-  official) apply_official ;;
   auto)
     # 自动检测：根据 KSU 目录内容判断变体
     if [ -f "$KSU_DIR/kernel/Kbuild" ] && grep -q "$(echo "${PATTERNS[marker]}" | base64 -d)" "$KSU_DIR/kernel/Kbuild" 2>/dev/null; then
