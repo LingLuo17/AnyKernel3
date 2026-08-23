@@ -241,6 +241,9 @@ jobs:
           git clone https://github.com/WildKernels/AnyKernel3.git -b "$ANYKERNEL_BRANCH"
           rm -rf AnyKernel3/.git
 
+          echo "注入 LingLuoKernels 信息到 anykernel.sh..."
+          awk -v f="$GITHUB_WORKSPACE/data/lingluo_info.txt" '/ui_print "WildKernels Telegram Channel:/{while((getline l<f)>0)print l}1' "$ANYKERNEL3/anykernel.sh" > /tmp/ak.tmp && mv /tmp/ak.tmp "$ANYKERNEL3/anykernel.sh"
+
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
           if [ -n "$LEGACY_SUKISU_CONFIG" ]; then
             git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
