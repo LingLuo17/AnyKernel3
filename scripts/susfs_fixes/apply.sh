@@ -336,6 +336,12 @@ if [ "$KSU_VARIANT" == "Official" ] || [ "$KSU_VARIANT" == "Next" ] || [ "$KSU_V
       echo "已修复 setuid_hook.c 重复定义问题"
     fi
 
+    # 修复 6.12 getname_flags 三参数调用（ACK 6.12 声明为 2 参数）
+    if grep -qF 'getname_flags(filename, lookup_flags, NULL)' ./fs/open.c; then
+      sed -i 's/getname_flags(filename, lookup_flags, NULL)/getname_flags(filename, lookup_flags)/' ./fs/open.c
+      echo "已修复 fs/open.c getname_flags 三参数问题"
+    fi
+
     # 修复 6.12.58+: exec.c 头部上下文变化导致 SUSFS 补丁漏掉 susfs_def.h
     if grep -q 'susfs_is_current_proc_umounted' ./fs/exec.c && ! grep -qF '#include <linux/susfs_def.h>' ./fs/exec.c; then
       if grep -qF '#include <linux/dma-buf.h>' ./fs/exec.c; then
