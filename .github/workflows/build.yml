@@ -893,15 +893,7 @@ jobs:
               fi
             fi
           fi
-
-          # 修复 selinux_hide.c 函数指针布尔转换警告（6.6+ clang -Werror 触发）
-          SELINUX_HIDE="$KERNEL_ROOT/common/drivers/kernelsu/feature/selinux_hide.c"
-          if [ -f "$SELINUX_HIDE" ]; then
-            sed -i 's/if (security_dump_masked_av_fn)/if (\&security_dump_masked_av_fn)/' "$SELINUX_HIDE"
-            sed -i 's/if (context_struct_compute_av_fn)/if (\&context_struct_compute_av_fn)/' "$SELINUX_HIDE"
-            echo "已修复 selinux_hide.c 函数指针布尔转换警告"
-          fi
-
+          
       - name: 克隆 Droidspaces 补丁仓库
         if: inputs.droidspaces != 'off'
         run: |
