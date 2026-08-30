@@ -894,6 +894,22 @@ jobs:
             fi
           fi
           
+          # 修复 6.12 super_access.c: netlink_kernel_cfg.cb_mutex 已移除
+          SUPER_ACCESS="$KERNEL_ROOT/common/drivers/kernelsu/kpm/super_access.c"
+          if [ -f "$SUPER_ACCESS" ] && grep -q 'DEFINE_MEMBER(netlink_kernel_cfg, cb_mutex)' "$SUPER_ACCESS"; then
+            sed -i '/DEFINE_MEMBER(netlink_kernel_cfg, cb_mutex)/i #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)' "$SUPER_ACCESS"
+            sed -i '/DEFINE_MEMBER(netlink_kernel_cfg, cb_mutex)/a #endif' "$SUPER_ACCESS"
+            echo "已修复 super_access.c cb_mutex 6.12 兼容"
+          fi
+
+          # 修复 6.12 lsm_hook.c: security_add_hooks 参数类型变了
+          LSM_HOOK="$KERNEL_ROOT/common/drivers/kernelsu/hook/lsm_hook.c"
+          if [ -f "$LSM_HOOK" ] && grep -q 'security_add_hooks.*"ksu"' "$LSM_HOOK"; then
+            sed -i 's/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), "ksu")/security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_hooks), \&(struct lsm_id){"ksu", 0})/' "$LSM_HOOK"
+            echo "已修复 lsm_hook.c security_add_hooks 6.12 兼容"
+          fi
+
+          
       - name: 克隆 Droidspaces 补丁仓库
         if: inputs.droidspaces != 'off'
         run: |
