@@ -22,10 +22,10 @@ on:
         required: false
         type: string
       build_time:
-        description: "自定义构建时间 (可选，N或留空=当前UTC)"
+        description: "自定义构建时间 (可选，留空=自动获取当前北京时间)"
         required: false
         type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
+        default: ""
       use_kpm:
         description: "KPM 功能（patched 尚不支持）"
         required: true
@@ -97,7 +97,7 @@ on:
       build_time:
         required: false
         type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
+        default: ""
       use_zram:
         required: true
         type: boolean

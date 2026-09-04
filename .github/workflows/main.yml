@@ -50,9 +50,9 @@ on:
         default: ""
         required: false
       build_time:
-        description: "自定义构建时间 (可选，N或留空=当前UTC)"
+        description: "自定义构建时间 (可选，留空=自动获取当前北京时间)"
         type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
+        default: ""
         required: false
       # ==================== 选项配置 ====================
       use_kpm:

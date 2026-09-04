@@ -37,7 +37,7 @@ on:
       build_time:
         required: false
         type: string
-        default: "Sun Dec 01 08:10:00 UTC 2024"
+        default: ""
 
       # ==================== 功能开关 ====================
       use_zram:
@@ -1281,7 +1281,7 @@ jobs:
             
             DATESTR="$NORMALIZED_TIME"
           else
-            DATESTR="$(TZ='UTC' date +'%a %b %d %T %Z %Y')"
+            DATESTR="$(TZ='CST-8' date +'%a %b %d %T UTC %Y')"
           fi
 
           echo "使用构建时间: $DATESTR"
