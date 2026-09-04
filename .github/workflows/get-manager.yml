@@ -71,14 +71,6 @@ jobs:
           elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
             echo "This is the SukiSU variant"
             git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40726)" ]; then
-            echo "This is the SukiSU(40726) variant"
-            git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
-            git -C KernelSU checkout 5da529942987b834c2b02a4819eaa298a8383bf4
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40548)" ]; then
-            echo "This is the SukiSU(40548) variant"
-            git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
-            git -C KernelSU checkout 3170a48c508f6330ea636c51835a84573fe56ef5
           elif [ "${{ inputs.kernelsu_variant }}" == "ReSukiSU" ]; then
             echo "This is the ReSukiSU variant"
             git clone https://github.com/ReSukiSU/ReSukiSU.git KernelSU
@@ -97,10 +89,6 @@ jobs:
 
           if [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
             KSU_VERSION=$((40000 + KSU_GIT_VERSION - 2815))
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40726)" ]; then
-            KSU_VERSION=40726
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40548)" ]; then
-            KSU_VERSION=40548
           elif [ "${{ inputs.kernelsu_variant }}" == "ReSukiSU" ]; then
             KSU_VERSION=$((30700 + KSU_GIT_VERSION))
           elif [ "${{ inputs.kernelsu_variant }}" == "Official" ]; then
@@ -112,14 +100,8 @@ jobs:
           echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
 
           # 计算SUSFS版本号
-          if [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40726)" ]; then
-            SUS_VERSION="v2.1.0"
-          elif [ "${{ inputs.kernelsu_variant }}" == "SukiSU(40548)" ]; then
-            SUS_VERSION="v2.0.0"
-          else
-            INFO="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android14-6.1/ksu_module_susfs/module.prop\?ref_type\=heads"
-            SUS_VERSION=$(curl -s $INFO | awk -F '=' '$1 == "version" { print $2 }')
-          fi
+          INFO="https://gitlab.com/simonpunk/susfs4ksu/-/raw/gki-android14-6.1/ksu_module_susfs/module.prop\?ref_type\=heads"
+          SUS_VERSION=$(curl -s $INFO | awk -F '=' '$1 == "version" { print $2 }')
           echo $SUS_VERSION
 
           # 导出这两个值给release
@@ -130,25 +112,6 @@ jobs:
         id: add_KSU
         continue-on-error: true
         run: |
-          case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU(40726)") LEGACY_RELEASE_TAG="v2.1.0-r2"; LEGACY_DIR="SukiSU_40726" ;;
-            "SukiSU(40548)") LEGACY_RELEASE_TAG="v2.0.0-r34"; LEGACY_DIR="SukiSU_40548" ;;
-            *) LEGACY_RELEASE_TAG="" ;;
-          esac
-          if [ -n "$LEGACY_RELEASE_TAG" ]; then
-            echo "下载 ${{ inputs.kernelsu_variant }} 管理器..."
-            mkdir -p "manager-artifacts/$LEGACY_DIR"
-            MANAGER_URL=$(curl -fsSL "https://api.github.com/repos/zzh20188/GKI_KernelSU_SUSFS/releases/tags/$LEGACY_RELEASE_TAG" |
-              jq -r '.assets[] | select(.name | startswith("SukiSU_") and endswith("-release.apk")) | .browser_download_url' |
-              head -n 1)
-            if [ -z "$MANAGER_URL" ]; then
-              echo "未找到 ${{ inputs.kernelsu_variant }} 管理器下载地址。"
-              exit 1
-            fi
-            curl -fL -o "manager-artifacts/$LEGACY_DIR/${LEGACY_DIR}-release.apk" "$MANAGER_URL"
-            exit 0
-          fi
-
           if [ "${{ inputs.kernelsu_variant }}" == "Next" ]; then
             echo "KernelSU Next..."
             REPO="KernelSU-Next/KernelSU-Next"
@@ -300,20 +263,6 @@ jobs:
         id: add_SUSFS
         continue-on-error: true
         run: |
-          case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU(40726)") LEGACY_RELEASE_TAG="v2.1.0-r2"; LEGACY_SUSFS_VERSION="v2.1.0" ;;
-            "SukiSU(40548)") LEGACY_RELEASE_TAG="v2.0.0-r34"; LEGACY_SUSFS_VERSION="v2.0.0" ;;
-            *) LEGACY_RELEASE_TAG="" ;;
-          esac
-          if [ -n "$LEGACY_RELEASE_TAG" ]; then
-            echo "下载 ${{ inputs.kernelsu_variant }} 对应的 SUSFS 模块..."
-            mkdir -p susfs-module
-            curl -fL -o susfs-module/ksu_module_susfs.zip \
-              "https://github.com/zzh20188/GKI_KernelSU_SUSFS/releases/download/$LEGACY_RELEASE_TAG/ksu_module_susfs.zip"
-            echo "SUSFS_NAME=$LEGACY_SUSFS_VERSION" >> $GITHUB_ENV
-            exit 0
-          fi
-
           BUILD_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
           "https://api.github.com/repos/sidex15/susfs4ksu-module/actions/workflows/build.yml/runs?status=success" |
           jq -r '.workflow_runs[0].id')
