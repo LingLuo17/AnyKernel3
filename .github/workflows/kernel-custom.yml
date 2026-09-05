@@ -32,7 +32,7 @@ on:
         type: choice
         options:
           - Official
-          #- Next
+          - Next
           - SukiSU
           - ReSukiSU
         default: ReSukiSU
