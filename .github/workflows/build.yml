@@ -434,7 +434,17 @@ jobs:
               ;;
             "Next")
               echo "添加 KernelSU-Next..."
-              curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev
+              if [ "${{ inputs.enable_susfs }}" = "true" ]; then
+                # 官方 KernelSU-Next dev(v3.x) 已移除内置 SUSFS，其驱动缺少 susfs4ksu 联合补丁
+                # 所需的 ksu_handle_* / susfs_ksu_sid / susfs_is_current_ksu_domain 等内核符号，
+                # 链接期必然 undefined symbol，导致 SUSFS 实际打不上。
+                # SUSFS 构建改用 pershoot 维护的 dev-susfs 分支（dev 同源代码 + 内置 SUSFS，
+                # Kconfig 已声明全部 CONFIG_KSU_SUSFS*，与 50_add_susfs 联合补丁完全兼容）。
+                # 仅影响 Next+SUSFS 组合；其他变体与其他开关组合行为不变。
+                curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
+              else
+                curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/refs/heads/dev/kernel/setup.sh" | bash -s dev
+              fi
               ;;
             "SukiSU")
               echo "添加 ${{ inputs.ksu_variant }}..."
@@ -452,7 +462,11 @@ jobs:
               ;;
           esac
 
-          if [ -d "KernelSU/.git" ]; then
+          # 新版 KernelSU-Next setup.sh 克隆目录名为 KernelSU-Next，与旧版 KernelSU 兼容
+          if [ -d "KernelSU-Next/.git" ]; then
+            KSU_LATEST_COMMIT_DATE=$(git -C KernelSU-Next log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
+            echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> $GITHUB_ENV
+          elif [ -d "KernelSU/.git" ]; then
             KSU_LATEST_COMMIT_DATE=$(git -C KernelSU log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
             echo "KSU_LATEST_COMMIT_DATE=$KSU_LATEST_COMMIT_DATE" >> $GITHUB_ENV
           else
@@ -1171,7 +1185,8 @@ jobs:
 
           if [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "ReSukiSU" ] || [ "${{ inputs.ksu_variant }}" == "Next" ]; then
             if [[ "${{ inputs.use_kpm }}" == enabled* ]] || [[ "${{ inputs.use_kpm }}" == patched* ]]; then
-              if ! grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
+              # KernelSU-Next 克隆目录名为 KernelSU-Next，一并纳入 KPM 声明检查
+              if ! grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU KernelSU-Next 2>/dev/null; then
                 echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
                 exit 1
               fi
