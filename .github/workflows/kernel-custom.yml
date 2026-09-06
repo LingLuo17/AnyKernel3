@@ -50,14 +50,14 @@ on:
 
       # ==================== 选项配置 ====================
       use_kpm:
-        description: "KPM 功能（patched 尚不支持）"
+        description: "KPM 功能"
         required: true
         type: choice
         default: "disabled (关闭)"
         options:
           - "disabled (关闭)"
           - "enabled (开启)"
-          - "patched (开启并修补，尚不支持)"
+          - "patched (开启并修补)"
       droidspaces:
         description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
         required: false

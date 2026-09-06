@@ -173,7 +173,7 @@ jobs:
       - name: 安装编译依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          sudo apt-get install -y ccache python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves lz4
 
       - name: 配置 ccache
         run: |
@@ -1425,26 +1425,39 @@ jobs:
           retention-days: 7
           compression-level: 9
 
-      # - name: 应用 KPM 补丁 (SukiSU/ReSukiSU/Next)
-      #   if: startsWith(inputs.use_kpm, 'patched') && (inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'ReSukiSU' || inputs.ksu_variant == 'Next')
-      #   run: |
-      #     case "${{ inputs.android_version }}" in
-      #       "android12"|"android13")
-      #         if [ "${{ inputs.kernel_version }}" != "6.6" ]; then
-      #           TARGET_PATH="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
-      #         fi
-      #         ;;
-      #       "android14"|"android15"|"android16")
-      #         TARGET_PATH="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64/"
-      #         ;;
-      #     esac
+      - name: 应用 KPM 补丁（构建期修补 Image）
+        if: startsWith(inputs.use_kpm, 'patched') && (inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'ReSukiSU' || inputs.ksu_variant == 'Next')
+        run: |
+          set -e
+          if [ "${{ inputs.android_version }}" == "android12" ] || [ "${{ inputs.android_version }}" == "android13" ]; then
+            TARGET_PATH="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
+          else
+            TARGET_PATH="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64"
+          fi
+          echo "KPM 补丁目标目录: $TARGET_PATH"
+          if [ ! -f "$TARGET_PATH/Image" ]; then
+            echo "::error::未找到 $TARGET_PATH/Image，无法应用 KPM 补丁"
+            exit 1
+          fi
 
-      #     cp -r $SUKISU_PATCHES/kpm/patch_linux "$TARGET_PATH/patch"
-      #     cd "$TARGET_PATH"
-      #     chmod 777 patch
-      #     ./patch
-      #     rm -rf Image
-      #     mv oImage Image
+          cd "$TARGET_PATH"
+          # patch_linux 为内置 kpimg 的 kptools：无参数运行时默认读取 ./Image 并输出 ./oImage
+          cp -f "$SUKISU_PATCHES/kpm/patch_linux" ./patch
+          chmod 755 ./patch
+          ./patch
+          if [ ! -f ./oImage ]; then
+            echo "::error::KPM 补丁未生成 oImage，patch_linux 可能不适配当前内核版本"
+            exit 1
+          fi
+          mv -f ./oImage ./Image
+          echo "已用 kptools 在构建期完成 KPM 修补"
+
+          # 用修补后的 Image 重新生成 lz4，保证 boot-lz4 变体同样支持 KPM
+          if [ -f ./Image.lz4 ]; then
+            lz4 -f -9 --content-size ./Image ./Image.lz4
+            echo "已用修补后的 Image 重新生成 Image.lz4"
+          fi
+          echo "刷入 AnyKernel3 或任意 boot 镜像时无需再打 KPM 补丁"
 
       - name: 准备 Boot 镜像
         run: |
