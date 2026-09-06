@@ -1304,6 +1304,17 @@ jobs:
             fi
           fi
 
+      - name: 修复 2024-11 分支 mmap.c 缺少 vm_flags_clear helper（不依赖 SUSFS 开关）
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          if grep -qF 'vm_flags_clear(new_vma, VM_PAD_MASK);' mm/mmap.c \
+            && ! grep -qsF 'vm_flags_clear(struct vm_area_struct *vma' include/linux/mm.h; then
+            echo "检测到 2024-11 分支 mmap.c 调用 vm_flags_clear() 但 mm.h 未提供 helper，替换为 5.10 直接赋值写法"
+            sed -i 's/vm_flags_clear(new_vma, VM_PAD_MASK);/new_vma->vm_flags \&= ~VM_PAD_MASK;/' mm/mmap.c
+          else
+            echo "mmap.c vm_flags_clear 无需修复（无该调用或 helper 已存在）"
+          fi
+
       - name: 编译内核
         id: compile_kernel
         uses: nick-fields/retry@v4
