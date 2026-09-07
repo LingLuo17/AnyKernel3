@@ -3,7 +3,7 @@
 # GKI KernelSU SUSFS
 ### 🏮 2026 🐎 Happy New Year! 🏮
 
-GKI Kernel |  SukiSU-Ultra/ReSukiSU
+GKI Kernel |  KernelSU/KernelSU-Next/SukiSU/ReSukiSU
 
 [![Release](https://img.shields.io/github/v/release/LingLuo17/AK3?label=Release&style=flat-square&logo=github&logoColor=white&color=2ea44f)](https://github.com/LingLuo17/AK3/releases)
 [![Coolapk](https://img.shields.io/badge/Follow-Coolapk-3DDC84?style=flat-square&logo=android&logoColor=white)](http://www.coolapk.com/u/38407386)
