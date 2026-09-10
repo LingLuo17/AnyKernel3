@@ -1,0 +1,56 @@
+{
+  "items": [
+    {
+      "date": "2026-03-25",
+      "content_md": [
+        "## 📖 New: Beginner's Guide",
+        "",
+        "If this is your first time here, we recommend checking out the **Fork & Custom Build Guide** to get started.",
+        "",
+        "The guide walks you through:",
+        "- Forking the repository",
+        "- Enabling GitHub Actions",
+        "- Running a custom kernel build",
+        "- Downloading your build artifacts",
+        "",
+        "👉 [Open the Guide](guide.html)"
+      ],
+      "content_zh_md": [
+        "## 📖 新手教程已上线",
+        "",
+        "如果你是第一次使用本项目，建议先阅读 **Fork 与自定义编译指南**。",
+        "",
+        "教程涵盖：",
+        "- Fork 仓库到你的账号",
+        "- 启用 GitHub Actions",
+        "- 运行自定义内核构建",
+        "- 下载构建产物",
+        "",
+        "👉 [打开教程](guide.html)"
+      ]
+    },
+    {
+      "date": "2026-02-21",
+      "content_md": [
+        "## GKI Kernel Version Tracker",
+        "",
+        "Dashboard is now live. You can view all maintained branches in one place.",
+        "",
+        "- Supports Android 12/13/14/15",
+        "- Incremental update every week",
+        "",
+        "Details: [GitHub Repository](https://github.com/zzh20188/GKI_KernelSU_SUSFS)"
+      ],
+      "content_zh_md": [
+        "## GKI 内核版本追踪器",
+        "",
+        "页面已上线，可在同一处查看所有维护分支。",
+        "",
+        "- 支持 Android 12/13/14/15",
+        "- 每周自动增量更新",
+        "",
+        "详情：[GitHub 仓库](https://github.com/zzh20188/GKI_KernelSU_SUSFS)"
+      ]
+    }
+  ]
+}
