@@ -1,0 +1,379 @@
+name: Android 内核构建-自定义
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      # ==================== 内核版本配置 ====================
+      kernel_version:
+        description: "内核版本"
+        required: true
+        type: choice
+        options:
+          - "5.10"
+          - "5.15"
+          - "6.1"
+          - "6.6"
+          - "6.12"
+        default: "5.10"
+      # 内核子版本：每个内核版本独立下拉，仅对应版本生效，选后自动匹配安全补丁级别
+      sub_level_5_10:
+        description: "5.10 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 5.10 时生效)"
+        required: false
+        type: choice
+        default: "auto (使用下方安全补丁级别)"
+        options:
+          - "auto (使用下方安全补丁级别)"
+          - "43 (2021-10)"
+          - "66 (2022-01)"
+          - "81 (2022-03)"
+          - "101 (2022-05)"
+          - "110 (2022-07)"
+          - "117 (2022-09)"
+          - "136 (2022-11)"
+          - "149 (2023-01)"
+          - "160 (2023-03)"
+          - "168 (2023-05)"
+          - "177 (2023-07)"
+          - "185 (2023-09)"
+          - "198 (2024-01)"
+          - "205 (2024-03)"
+          - "209 (2024-05)"
+          - "218 (2024-08)"
+          - "226 (2024-11)"
+          - "233 (2025-02)"
+          - "236 (2025-05)"
+          - "237 (2025-06)"
+          - "240 (2025-09)"
+          - "246 (2025-12)"
+          - "lts (5.10.269)"
+      sub_level_5_15:
+        description: "5.15 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 5.15 时生效)"
+        required: false
+        type: choice
+        default: "auto (使用下方安全补丁级别)"
+        options:
+          - "auto (使用下方安全补丁级别)"
+          - "41 (2022-11)"
+          - "74 (2023-01)"
+          - "78 (2023-03)"
+          - "94 (2023-05)"
+          - "104 (2023-07)"
+          - "119 (2023-09)"
+          - "123 (2023-11)"
+          - "137 (2024-01)"
+          - "144 (2024-03)"
+          - "148 (2024-05)"
+          - "149 (2024-07)"
+          - "151 (2024-08)"
+          - "153 (2024-09)"
+          - "167 (2024-11)"
+          - "170 (2025-01)"
+          - "178 (2025-03)"
+          - "180 (2025-05)"
+          - "185 (2025-07)"
+          - "189 (2025-09)"
+          - "194 (2025-12)"
+          - "lts (5.15.215)"
+      sub_level_6_1:
+        description: "6.1 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.1 时生效)"
+        required: false
+        type: choice
+        default: "auto (使用下方安全补丁级别)"
+        options:
+          - "auto (使用下方安全补丁级别)"
+          - "25 (2023-10)"
+          - "43 (2023-11)"
+          - "57 (2024-01)"
+          - "68 (2024-03)"
+          - "75 (2024-05)"
+          - "78 (2024-06)"
+          - "84 (2024-07)"
+          - "90 (2024-08)"
+          - "93 (2024-09)"
+          - "99 (2024-10)"
+          - "112 (2024-11)"
+          - "115 (2024-12)"
+          - "118 (2025-01)"
+          - "124 (2025-02)"
+          - "128 (2025-03)"
+          - "129 (2025-04)"
+          - "134 (2025-05)"
+          - "138 (2025-06)"
+          - "141 (2025-07)"
+          - "145 (2025-09)"
+          - "157 (2025-12)"
+          - "162 (2026-03)"
+          - "172 (2026-06)"
+          - "lts (6.1.176)"
+      sub_level_6_6:
+        description: "6.6 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.6 时生效)"
+        required: false
+        type: choice
+        default: "auto (使用下方安全补丁级别)"
+        options:
+          - "auto (使用下方安全补丁级别)"
+          - "50 (2024-10)"
+          - "56 (2024-11)"
+          - "57 (2024-12)"
+          - "58 (2025-01)"
+          - "66 (2025-02)"
+          - "77 (2025-03)"
+          - "82 (2025-04)"
+          - "87 (2025-05)"
+          - "89 (2025-06)"
+          - "92 (2025-07)"
+          - "98 (2025-09)"
+          - "102 (2025-10)"
+          - "118 (2026-01)"
+          - "127 (2026-04)"
+          - "139 (2026-07)"
+          - "lts (6.6.142)"
+      sub_level_6_12:
+        description: "6.12 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.12 时生效)"
+        required: false
+        type: choice
+        default: "auto (使用下方安全补丁级别)"
+        options:
+          - "auto (使用下方安全补丁级别)"
+          - "23 (2025-06)"
+          - "30 (2025-07)"
+          - "38 (2025-09)"
+          - "58 (2025-12)"
+          - "69 (2026-03)"
+          - "81 (2026-06)"
+          - "lts (6.12.92)"
+
+      # ==================== KernelSU 配置 ====================
+      kernelsu_variant:
+        description: "KernelSU 变体"
+        required: true
+        type: choice
+        options:
+          - SukiSU
+          - ReSukiSU
+        default: ReSukiSU
+
+      # ==================== 可选配置 ====================
+      version:
+        description: "自定义版本名 (可选)"
+        required: false
+        type: string
+      build_time:
+        description: "自定义构建时间 (可选，留空=自动获取当前北京时间)"
+        required: false
+        type: string
+        default: ""
+
+      # ==================== 选项配置 ====================
+      use_kpm:
+        description: "KPM 功能"
+        required: true
+        type: choice
+        default: "disabled (关闭)"
+        options:
+          - "disabled (关闭)"
+          - "enabled (开启)"
+          - "patched (开启并修补)"
+      droidspaces:
+        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
+        required: false
+        type: choice
+        options:
+          - "off"
+          - "678"
+          - "123"
+          - "345"
+        default: "off"
+      artifact_upload_mode:
+        description: "构建产物上传模式"
+        required: true
+        type: choice
+        options:
+          - "仅上传 AnyKernel3.zip"
+          - "上传全部"
+        default: "仅上传 AnyKernel3.zip"
+      droidspaces_ntsync:
+        description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
+        required: false
+        type: boolean
+        default: false
+
+      # ==================== 功能开关 ====================
+      use_zram:
+        description: "启用 ZRAM 压缩算法"
+        required: true
+        type: boolean
+        default: false
+      use_bbg:
+        description: "启用 BBG 防格机"
+        required: true
+        type: boolean
+        default: false
+      use_rekernel:
+        description: "启用 Re-Kernel 驱动"
+        required: false
+        type: boolean
+        default: false
+      cve_2026_43499_patch:
+        description: "应用 CVE-2026-43499 rtmutex 修复链"
+        required: false
+        type: boolean
+        default: false
+      cancel_susfs:
+        description: "禁用 SUSFS"
+        required: true
+        type: boolean
+        default: false
+      supp_op:
+        description: "启用 一加 骁龙8 Elite/Gen5 支持"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      android_version: ${{ steps.resolve.outputs.android_version }}
+      sub_level: ${{ steps.resolve.outputs.sub_level }}
+      kernel_full: ${{ steps.resolve.outputs.kernel_full }}
+      os_patch_level: ${{ steps.resolve.outputs.os_patch_level }}
+    steps:
+      - name: 检出版本数据
+        uses: actions/checkout@v7
+
+      - name: 解析安全补丁级别
+        id: resolve
+        env:
+          KERNEL_VERSION: ${{ inputs.kernel_version }}
+          SUB_LEVEL_5_10: ${{ inputs.sub_level_5_10 }}
+          SUB_LEVEL_5_15: ${{ inputs.sub_level_5_15 }}
+          SUB_LEVEL_6_1: ${{ inputs.sub_level_6_1 }}
+          SUB_LEVEL_6_6: ${{ inputs.sub_level_6_6 }}
+          SUB_LEVEL_6_12: ${{ inputs.sub_level_6_12 }}
+          OS_PATCH_LEVEL: "2022-01"
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          kernel_version = os.environ["KERNEL_VERSION"]
+          os_patch_level = os.environ["OS_PATCH_LEVEL"].strip()
+          android_map = {
+              "5.10": "android12",
+              "5.15": "android13",
+              "6.1": "android14",
+              "6.6": "android15",
+              "6.12": "android16",
+          }
+          android_version = android_map.get(kernel_version)
+          if android_version is None:
+              print(f"::error::未适配的内核版本: {kernel_version}")
+              sys.exit(1)
+
+          data_path = Path("data") / android_version / f"{kernel_version}.json"
+
+          if not data_path.exists():
+              print(f"::error::未找到版本数据: {data_path}")
+              sys.exit(1)
+
+          with data_path.open("r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          # 按内核版本取对应的子版本下拉输入
+          sub_level_input = os.environ.get(f"SUB_LEVEL_{kernel_version.replace('.', '_')}", "").strip()
+
+          if sub_level_input and not sub_level_input.startswith("auto"):
+              # 按子版本反查安全补丁级别，如 "138 (2025-06)" -> 2025-06
+              token = sub_level_input.split()[0]
+              if token == "lts":
+                  kernel_full = data.get("lts")
+                  if not kernel_full:
+                      print(f"::error::{android_version} / {kernel_version} 缺少 LTS 版本数据")
+                      sys.exit(1)
+                  sub_level = "X"
+                  patch_level = "lts"
+              elif token.isdigit():
+                  matches = [
+                      entry for entry in data.get("entries", [])
+                      if entry.get("kernel") == f"{kernel_version}.{token}"
+                  ]
+                  if not matches:
+                      print(f"::error::未找到 {android_version} / {kernel_version}.{token} 对应的版本数据")
+                      sys.exit(1)
+                  # entries 按日期升序，取该子版本对应的最新安全补丁级别
+                  latest = matches[-1]
+                  kernel_full = latest.get("kernel", "")
+                  patch_level = latest.get("date", "")
+                  sub_level = token
+              else:
+                  print(f"::error::无法识别的子版本: {sub_level_input}")
+                  sys.exit(1)
+          else:
+              patch_level = os_patch_level
+              if patch_level == "lts":
+                  kernel_full = data.get("lts")
+                  if not kernel_full:
+                      print(f"::error::{android_version} / {kernel_version} 缺少 LTS 版本数据")
+                      sys.exit(1)
+                  sub_level = "X"
+              else:
+                  matched = next(
+                      (entry for entry in data.get("entries", []) if entry.get("date") == os_patch_level),
+                      None,
+                  )
+                  if matched is None:
+                      print(f"::error::未找到 {android_version} / {kernel_version} / {os_patch_level} 对应的版本数据")
+                      sys.exit(1)
+                  kernel_full = matched.get("kernel", "")
+                  prefix = f"{kernel_version}."
+                  if not kernel_full.startswith(prefix):
+                      print(f"::error::版本数据异常: {kernel_full} 不属于 {kernel_version}")
+                      sys.exit(1)
+                  sub_level = kernel_full.rsplit(".", 1)[-1]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"android_version={android_version}\n")
+              output.write(f"sub_level={sub_level}\n")
+              output.write(f"kernel_full={kernel_full}\n")
+              output.write(f"os_patch_level={patch_level}\n")
+
+          print(f"解析结果: {android_version} / {kernel_full} / 补丁级别 {patch_level}，子版本号: {sub_level}")
+          PY
+
+  build-custom-kernel:
+    name: "${{ needs.resolve-version.outputs.kernel_full }}-${{ needs.resolve-version.outputs.android_version }}-${{ needs.resolve-version.outputs.os_patch_level }}"
+    needs: resolve-version
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+    with:
+      android_version: ${{ needs.resolve-version.outputs.android_version }}
+      kernel_version: ${{ inputs.kernel_version }}
+      sub_level: ${{ needs.resolve-version.outputs.sub_level }}
+      os_patch_level: ${{ needs.resolve-version.outputs.os_patch_level }}
+      revision: "r1"
+      ksu_variant: ${{ inputs.kernelsu_variant }}
+      version: ${{ inputs.version || '' }}
+      build_time: ${{ inputs.build_time || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel || false }}
+      cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      supp_op: ${{ inputs.supp_op || false }}
+      enable_susfs: ${{ !inputs.cancel_susfs }}
+      droidspaces: ${{ inputs.droidspaces || 'off' }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
+
+  get-ksu-manager:
+    uses: ./.github/workflows/get-manager.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
