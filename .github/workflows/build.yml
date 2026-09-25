@@ -94,7 +94,8 @@ jobs:
   build-kernel:
     name: "${{ inputs.kernel_version }}.${{ inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}-${{ inputs.ksu_variant }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # repo sync 重试（3 x 20 分钟）+ 完整构建需要 60 分钟以上的余量
+    timeout-minutes: 90
 
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -238,6 +239,10 @@ jobs:
         run: |
           git config --global user.name "BuildBot"
           git config --global user.email "BuildGkiKernel@gmail.com"
+          # 上游 git 服务偶发连接停滞：传输速率低于 1KB/s 持续 180 秒即中止，
+          # 避免在 repo sync / git clone 中无限挂起直到 job 超时
+          git config --global http.lowSpeedLimit 1000
+          git config --global http.lowSpeedTime 180
 
       - name: 克隆依赖仓库
         run: |
@@ -314,7 +319,24 @@ jobs:
             sed -i "s/\"${FORMATTED_BRANCH}\"/\"refs\/tags\/${LATEST_TAG}\"/g" $DEFAULT_MANIFEST_PATH
           fi
 
-          $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+          # repo sync 支持断点续传：单次限时 20 分钟，超时或失败后清理残留进程重试，
+          # 已同步完成的项目在下次尝试中自动跳过；防止上游连接停滞挂满整个 job 时限
+          SYNC_OK=false
+          for SYNC_ATTEMPT in 1 2 3; do
+            echo "==> repo sync 第 ${SYNC_ATTEMPT}/3 次尝试"
+            if timeout --kill-after=30 20m $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast; then
+              SYNC_OK=true
+              break
+            fi
+            echo "::warning title=repo sync 重试::第 ${SYNC_ATTEMPT}/3 次同步失败或超时，清理残留 git 进程后重试"
+            pkill -9 -f 'git-remote-https' 2>/dev/null || true
+            pkill -9 -f 'android\.googlesource\.com' 2>/dev/null || true
+            sleep 10
+          done
+          if [ "$SYNC_OK" != "true" ]; then
+            echo "::error::repo sync 连续 3 次尝试均失败（上游连接停滞或不可用）"
+            exit 1
+          fi
           echo "REMOTE_BRANCH=$REMOTE_BRANCH" >> $GITHUB_ENV
 
       - name: 提取实际子版本号
@@ -755,6 +777,16 @@ jobs:
             patch -p1 --forward < "$ACTION_BUILD/patches/unicode_bypass_fix_6.1-.patch" || true
           else
             patch -p1 --forward < "$ACTION_BUILD/patches/unicode_bypass_fix_6.1+.patch" || true
+          fi
+
+          # SUSFS 主补丁或上游 ASB 已包含同款 fs/unicode 修改时，bypass 补丁的 hunk
+          # 会被 patch 判定为 previously applied：源码状态正确（可正常编译），但 hunk
+          # 仍被写入 .rej 并污染 Rejects 产物。此处剔除该预期冲突；
+          # mkutf8data.c 仍含 ignore_init 说明存在真实缺失，保留 .rej 以便排查。
+          if [ -f fs/unicode/mkutf8data.c.rej ] && [ -f fs/unicode/mkutf8data.c ] \
+            && ! grep -q 'ignore_init' fs/unicode/mkutf8data.c; then
+            echo "fs/unicode .rej 为已应用同款修改产生的预期冲突，剔除（构建未受影响）"
+            rm -f fs/unicode/*.rej
           fi
 
       - name: 配置 ZRAM LZ4 补丁栈
