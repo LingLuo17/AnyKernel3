@@ -1,0 +1,223 @@
+diff --git a/drivers/block/zram/Kconfig b/drivers/block/zram/Kconfig
+index 397ce3b..5d95dfa 100644
+--- a/drivers/block/zram/Kconfig
++++ b/drivers/block/zram/Kconfig
+@@ -38,6 +38,11 @@ config ZRAM_BACKEND_LZ4KD
+ 	select LZ4KD_COMPRESS
+ 	select LZ4KD_DECOMPRESS
+ 
++config ZRAM_BACKEND_LZ4K_OPLUS
++	bool "lz4k_oplus compression support"
++	depends on ZRAM
++	depends on CRYPTO_LZ4K_OPLUS
++
+ config ZRAM_BACKEND_ZSTD
+ 	bool "zstd compression support"
+ 	depends on ZRAM
+@@ -60,7 +65,8 @@ config ZRAM_BACKEND_FORCE_LZO
+ 	depends on ZRAM
+ 	def_bool !ZRAM_BACKEND_LZ4 && !ZRAM_BACKEND_LZ4HC && \
+ 		!ZRAM_BACKEND_ZSTD && !ZRAM_BACKEND_DEFLATE && \
+-		!ZRAM_BACKEND_842 && !ZRAM_BACKEND_LZ4K && !ZRAM_BACKEND_LZ4KD
++		!ZRAM_BACKEND_842 && !ZRAM_BACKEND_LZ4K && !ZRAM_BACKEND_LZ4KD && \
++		!ZRAM_BACKEND_LZ4K_OPLUS
+ 
+ config ZRAM_BACKEND_LZO
+ 	bool "lzo and lzo-rle compression support" if !ZRAM_BACKEND_FORCE_LZO
+@@ -98,6 +104,10 @@ config ZRAM_DEF_COMP_LZ4KD
+ 	bool "lz4kd"
+ 	depends on ZRAM_BACKEND_LZ4KD
+ 
++config ZRAM_DEF_COMP_LZ4K_OPLUS
++	bool "lz4k_oplus"
++	depends on ZRAM_BACKEND_LZ4K_OPLUS
++
+ config ZRAM_DEF_COMP_ZSTD
+ 	bool "zstd"
+ 	depends on ZRAM_BACKEND_ZSTD
+@@ -121,6 +131,7 @@ config ZRAM_DEF_COMP
+ 	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
+ 	default "lz4k" if ZRAM_DEF_COMP_LZ4K
+ 	default "lz4kd" if ZRAM_DEF_COMP_LZ4KD
++	default "lz4k_oplus" if ZRAM_DEF_COMP_LZ4K_OPLUS
+ 	default "zstd" if ZRAM_DEF_COMP_ZSTD
+ 	default "deflate" if ZRAM_DEF_COMP_DEFLATE
+ 	default "842" if ZRAM_DEF_COMP_842
+diff --git a/drivers/block/zram/Makefile b/drivers/block/zram/Makefile
+index 8bca1a8..0cd1cff 100644
+--- a/drivers/block/zram/Makefile
++++ b/drivers/block/zram/Makefile
+@@ -10,5 +10,6 @@ zram-$(CONFIG_ZRAM_BACKEND_DEFLATE)	+= backend_deflate.o
+ zram-$(CONFIG_ZRAM_BACKEND_842)		+= backend_842.o
+ zram-$(CONFIG_ZRAM_BACKEND_LZ4K)	+= backend_lz4k.o
+ zram-$(CONFIG_ZRAM_BACKEND_LZ4KD)	+= backend_lz4kd.o
++zram-$(CONFIG_ZRAM_BACKEND_LZ4K_OPLUS)	+= backend_lz4k_oplus.o
+ 
+ obj-$(CONFIG_ZRAM)	+=	zram.o
+diff --git a/drivers/block/zram/backend_lz4k_oplus.c b/drivers/block/zram/backend_lz4k_oplus.c
+new file mode 100644
+index 0000000..4da852a
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4k_oplus.c
+@@ -0,0 +1,99 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
++
++#include "backend_lz4k_oplus.h"
++
++/*
++ * Raw lz4k_oplus entry points (implemented in lib/lz4k_oplus/, built as
++ * crypto_lz4k_oplus.o when CONFIG_CRYPTO_LZ4K_OPLUS is enabled). Prototypes
++ * are declared here instead of including lib/lz4k_oplus/lz4k.h, which is not
++ * on the global include path.
++ */
++int lz4k_compress(void *const state, const void *const source, void *dest,
++		  unsigned source_max, unsigned dest_max);
++int lz4k_decompress(const void *const source, void *const dest,
++		    unsigned source_max, unsigned dest_max);
++
++struct lz4k_oplus_ctx {
++	void *state;
++};
++
++static void lz4k_oplus_release_params(struct zcomp_params *params)
++{
++}
++
++static int lz4k_oplus_setup_params(struct zcomp_params *params)
++{
++	return 0;
++}
++
++static int lz4k_oplus_create(struct zcomp_params *params,
++			     struct zcomp_ctx *ctx)
++{
++	struct lz4k_oplus_ctx *zctx;
++
++	zctx = kzalloc(sizeof(*zctx), GFP_KERNEL);
++	if (!zctx)
++		return -ENOMEM;
++
++	ctx->context = zctx;
++
++	zctx->state = vmalloc(PAGE_SIZE * 2);
++	if (!zctx->state) {
++		kfree(zctx);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void lz4k_oplus_destroy(struct zcomp_ctx *ctx)
++{
++	struct lz4k_oplus_ctx *zctx = ctx->context;
++
++	if (!zctx)
++		return;
++
++	vfree(zctx->state);
++	kfree(zctx);
++}
++
++static int lz4k_oplus_compress(struct zcomp_params *params,
++			       struct zcomp_ctx *ctx, struct zcomp_req *req)
++{
++	struct lz4k_oplus_ctx *zctx = ctx->context;
++	int ret;
++
++	ret = lz4k_compress(zctx->state, req->src, req->dst, req->src_len,
++			    req->dst_len);
++	if (ret <= 0)
++		return -EINVAL;
++
++	req->dst_len = ret;
++	return 0;
++}
++
++static int lz4k_oplus_decompress(struct zcomp_params *params,
++				 struct zcomp_ctx *ctx, struct zcomp_req *req)
++{
++	int ret;
++
++	ret = lz4k_decompress(req->src, req->dst, req->src_len, req->dst_len);
++	if (ret <= 0)
++		return -EINVAL;
++
++	return 0;
++}
++
++const struct zcomp_ops backend_lz4k_oplus = {
++	.compress	= lz4k_oplus_compress,
++	.decompress	= lz4k_oplus_decompress,
++	.create_ctx	= lz4k_oplus_create,
++	.destroy_ctx	= lz4k_oplus_destroy,
++	.setup_params	= lz4k_oplus_setup_params,
++	.release_params	= lz4k_oplus_release_params,
++	.name		= "lz4k_oplus",
++};
+diff --git a/drivers/block/zram/backend_lz4k_oplus.h b/drivers/block/zram/backend_lz4k_oplus.h
+new file mode 100644
+index 0000000..84c5867
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4k_oplus.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++
++#ifndef __BACKEND_LZ4K_OPLUS_H__
++#define __BACKEND_LZ4K_OPLUS_H__
++
++#include "zcomp.h"
++
++extern const struct zcomp_ops backend_lz4k_oplus;
++
++#endif /* __BACKEND_LZ4K_OPLUS_H__ */
+diff --git a/drivers/block/zram/zcomp.c b/drivers/block/zram/zcomp.c
+index d5b6126..71726b7 100644
+--- a/drivers/block/zram/zcomp.c
++++ b/drivers/block/zram/zcomp.c
+@@ -18,6 +18,7 @@
+ #include "backend_lz4hc.h"
+ #include "backend_lz4k.h"
+ #include "backend_lz4kd.h"
++#include "backend_lz4k_oplus.h"
+ #include "backend_zstd.h"
+ #include "backend_deflate.h"
+ #include "backend_842.h"
+@@ -39,6 +40,9 @@ static const struct zcomp_ops *backends[] = {
+ #if IS_ENABLED(CONFIG_ZRAM_BACKEND_LZ4KD)
+ 	&backend_lz4kd,
+ #endif
++#if IS_ENABLED(CONFIG_ZRAM_BACKEND_LZ4K_OPLUS)
++	&backend_lz4k_oplus,
++#endif
+ #if IS_ENABLED(CONFIG_ZRAM_BACKEND_ZSTD)
+ 	&backend_zstd,
+ #endif
+diff --git a/lib/Kconfig b/lib/Kconfig
+index b8ac317..f7daa50 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -2,6 +2,7 @@
+ #
+ # Library configuration
+ #
++source "lib/lz4k_oplus/Kconfig"
+ 
+ config BINARY_PRINTF
+ 	def_bool n
+diff --git a/lib/Makefile b/lib/Makefile
+index 141e2a4..e1293b8 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -185,6 +185,7 @@ obj-$(CONFIG_LZ4K_COMPRESS) += lz4k/
+ obj-$(CONFIG_LZ4K_DECOMPRESS) += lz4k/
+ obj-$(CONFIG_LZ4KD_COMPRESS) += lz4kd/
+ obj-$(CONFIG_LZ4KD_DECOMPRESS) += lz4kd/
++obj-$(CONFIG_CRYPTO_LZ4K_OPLUS) += lz4k_oplus/
+ obj-$(CONFIG_ZSTD_COMPRESS) += zstd/
+ obj-$(CONFIG_ZSTD_DECOMPRESS) += zstd/
+ obj-$(CONFIG_XZ_DEC) += xz/

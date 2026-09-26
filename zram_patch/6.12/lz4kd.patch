@@ -1,0 +1,470 @@
+diff --git a/crypto/Kconfig b/crypto/Kconfig
+index 165083d..51e3fe4 100644
+--- a/crypto/Kconfig
++++ b/crypto/Kconfig
+@@ -1231,6 +1231,22 @@ config CRYPTO_LZ4
+ 
+ 	  See https://github.com/lz4/lz4 for further information.
+ 
++config CRYPTO_LZ4K
++	tristate "LZ4K compression algorithm"
++	select CRYPTO_ALGAPI
++	select LZ4K_COMPRESS
++	select LZ4K_DECOMPRESS
++	help
++	  This is the LZ4K algorithm.
++
++config CRYPTO_LZ4KD
++	tristate "LZ4KD compression algorithm"
++	select CRYPTO_ALGAPI
++	select LZ4KD_COMPRESS
++	select LZ4KD_DECOMPRESS
++	help
++	  This is the LZ4KD algorithm.
++
+ config CRYPTO_LZ4HC
+ 	tristate "LZ4HC"
+ 	select CRYPTO_ALGAPI
+diff --git a/crypto/Makefile b/crypto/Makefile
+index 3ecfaf5..4bf71de 100644
+--- a/crypto/Makefile
++++ b/crypto/Makefile
+@@ -157,7 +157,9 @@ obj-$(CONFIG_CRYPTO_CRC64_ROCKSOFT) += crc64_rocksoft_generic.o
+ obj-$(CONFIG_CRYPTO_AUTHENC) += authenc.o authencesn.o
+ obj-$(CONFIG_CRYPTO_LZO) += lzo.o lzo-rle.o
+ obj-$(CONFIG_CRYPTO_LZ4) += lz4.o
++obj-$(CONFIG_CRYPTO_LZ4K) += lz4k.o
+ obj-$(CONFIG_CRYPTO_LZ4HC) += lz4hc.o
++obj-$(CONFIG_CRYPTO_LZ4KD) += lz4kd.o
+ obj-$(CONFIG_CRYPTO_XXHASH) += xxhash_generic.o
+ obj-$(CONFIG_CRYPTO_842) += 842.o
+ obj-$(CONFIG_CRYPTO_RNG2) += rng.o
+diff --git a/drivers/block/zram/Kconfig b/drivers/block/zram/Kconfig
+index 402b7b1..397ce3b 100644
+--- a/drivers/block/zram/Kconfig
++++ b/drivers/block/zram/Kconfig
+@@ -26,6 +26,18 @@ config ZRAM_BACKEND_LZ4HC
+ 	select LZ4HC_COMPRESS
+ 	select LZ4_DECOMPRESS
+ 
++config ZRAM_BACKEND_LZ4K
++	bool "lz4k compression support"
++	depends on ZRAM
++	select LZ4K_COMPRESS
++	select LZ4K_DECOMPRESS
++
++config ZRAM_BACKEND_LZ4KD
++	bool "lz4kd compression support"
++	depends on ZRAM
++	select LZ4KD_COMPRESS
++	select LZ4KD_DECOMPRESS
++
+ config ZRAM_BACKEND_ZSTD
+ 	bool "zstd compression support"
+ 	depends on ZRAM
+@@ -48,7 +60,7 @@ config ZRAM_BACKEND_FORCE_LZO
+ 	depends on ZRAM
+ 	def_bool !ZRAM_BACKEND_LZ4 && !ZRAM_BACKEND_LZ4HC && \
+ 		!ZRAM_BACKEND_ZSTD && !ZRAM_BACKEND_DEFLATE && \
+-		!ZRAM_BACKEND_842
++		!ZRAM_BACKEND_842 && !ZRAM_BACKEND_LZ4K && !ZRAM_BACKEND_LZ4KD
+ 
+ config ZRAM_BACKEND_LZO
+ 	bool "lzo and lzo-rle compression support" if !ZRAM_BACKEND_FORCE_LZO
+@@ -59,7 +71,7 @@ config ZRAM_BACKEND_LZO
+ 
+ choice
+ 	prompt "Default zram compressor"
+-	default ZRAM_DEF_COMP_LZORLE
++	default ZRAM_DEF_COMP_LZ4KD
+ 	depends on ZRAM
+ 
+ config ZRAM_DEF_COMP_LZORLE
+@@ -78,6 +90,14 @@ config ZRAM_DEF_COMP_LZ4HC
+ 	bool "lz4hc"
+ 	depends on ZRAM_BACKEND_LZ4HC
+ 
++config ZRAM_DEF_COMP_LZ4K
++	bool "lz4k"
++	depends on ZRAM_BACKEND_LZ4K
++
++config ZRAM_DEF_COMP_LZ4KD
++	bool "lz4kd"
++	depends on ZRAM_BACKEND_LZ4KD
++
+ config ZRAM_DEF_COMP_ZSTD
+ 	bool "zstd"
+ 	depends on ZRAM_BACKEND_ZSTD
+@@ -99,6 +119,8 @@ config ZRAM_DEF_COMP
+ 	default "lzo" if ZRAM_DEF_COMP_LZO
+ 	default "lz4" if ZRAM_DEF_COMP_LZ4
+ 	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
++	default "lz4k" if ZRAM_DEF_COMP_LZ4K
++	default "lz4kd" if ZRAM_DEF_COMP_LZ4KD
+ 	default "zstd" if ZRAM_DEF_COMP_ZSTD
+ 	default "deflate" if ZRAM_DEF_COMP_DEFLATE
+ 	default "842" if ZRAM_DEF_COMP_842
+diff --git a/drivers/block/zram/Makefile b/drivers/block/zram/Makefile
+index 0fdefd5..8bca1a8 100644
+--- a/drivers/block/zram/Makefile
++++ b/drivers/block/zram/Makefile
+@@ -8,5 +8,7 @@ zram-$(CONFIG_ZRAM_BACKEND_LZ4HC)	+= backend_lz4hc.o
+ zram-$(CONFIG_ZRAM_BACKEND_ZSTD)	+= backend_zstd.o
+ zram-$(CONFIG_ZRAM_BACKEND_DEFLATE)	+= backend_deflate.o
+ zram-$(CONFIG_ZRAM_BACKEND_842)		+= backend_842.o
++zram-$(CONFIG_ZRAM_BACKEND_LZ4K)	+= backend_lz4k.o
++zram-$(CONFIG_ZRAM_BACKEND_LZ4KD)	+= backend_lz4kd.o
+ 
+ obj-$(CONFIG_ZRAM)	+=	zram.o
+diff --git a/drivers/block/zram/backend_lz4k.c b/drivers/block/zram/backend_lz4k.c
+new file mode 100644
+index 0000000..203d163
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4k.c
+@@ -0,0 +1,88 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/lz4k.h>
++#include <linux/vmalloc.h>
++
++#include "backend_lz4k.h"
++
++struct lz4k_ctx {
++	void *state;
++};
++
++static void lz4k_release_params(struct zcomp_params *params)
++{
++}
++
++static int lz4k_setup_params(struct zcomp_params *params)
++{
++	return 0;
++}
++
++static int lz4k_create(struct zcomp_params *params, struct zcomp_ctx *ctx)
++{
++	struct lz4k_ctx *zctx;
++
++	zctx = kzalloc(sizeof(*zctx), GFP_KERNEL);
++	if (!zctx)
++		return -ENOMEM;
++
++	ctx->context = zctx;
++
++	zctx->state = vzalloc(lz4k_encode_state_bytes_min());
++	if (!zctx->state) {
++		kfree(zctx);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void lz4k_destroy(struct zcomp_ctx *ctx)
++{
++	struct lz4k_ctx *zctx = ctx->context;
++
++	if (!zctx)
++		return;
++
++	vfree(zctx->state);
++	kfree(zctx);
++}
++
++static int lz4k_compress(struct zcomp_params *params, struct zcomp_ctx *ctx,
++			 struct zcomp_req *req)
++{
++	struct lz4k_ctx *zctx = ctx->context;
++	int ret;
++
++	ret = lz4k_encode(zctx->state, req->src, req->dst, req->src_len,
++			  req->dst_len, 0);
++	if (ret <= 0)
++		return -EINVAL;
++
++	req->dst_len = ret;
++	return 0;
++}
++
++static int lz4k_decompress(struct zcomp_params *params, struct zcomp_ctx *ctx,
++			   struct zcomp_req *req)
++{
++	int ret;
++
++	ret = lz4k_decode(req->src, req->dst, req->src_len, req->dst_len);
++	if (ret <= 0)
++		return -EINVAL;
++
++	return 0;
++}
++
++const struct zcomp_ops backend_lz4k = {
++	.compress	= lz4k_compress,
++	.decompress	= lz4k_decompress,
++	.create_ctx	= lz4k_create,
++	.destroy_ctx	= lz4k_destroy,
++	.setup_params	= lz4k_setup_params,
++	.release_params	= lz4k_release_params,
++	.name		= "lz4k",
++};
+diff --git a/drivers/block/zram/backend_lz4k.h b/drivers/block/zram/backend_lz4k.h
+new file mode 100644
+index 0000000..edaedb8
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4k.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++
++#ifndef __BACKEND_LZ4K_H__
++#define __BACKEND_LZ4K_H__
++
++#include "zcomp.h"
++
++extern const struct zcomp_ops backend_lz4k;
++
++#endif /* __BACKEND_LZ4K_H__ */
+diff --git a/drivers/block/zram/backend_lz4kd.c b/drivers/block/zram/backend_lz4kd.c
+new file mode 100644
+index 0000000..7257208
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4kd.c
+@@ -0,0 +1,88 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/lz4kd.h>
++#include <linux/vmalloc.h>
++
++#include "backend_lz4kd.h"
++
++struct lz4kd_ctx {
++	void *state;
++};
++
++static void lz4kd_release_params(struct zcomp_params *params)
++{
++}
++
++static int lz4kd_setup_params(struct zcomp_params *params)
++{
++	return 0;
++}
++
++static int lz4kd_create(struct zcomp_params *params, struct zcomp_ctx *ctx)
++{
++	struct lz4kd_ctx *zctx;
++
++	zctx = kzalloc(sizeof(*zctx), GFP_KERNEL);
++	if (!zctx)
++		return -ENOMEM;
++
++	ctx->context = zctx;
++
++	zctx->state = vzalloc(lz4kd_encode_state_bytes_min());
++	if (!zctx->state) {
++		kfree(zctx);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++static void lz4kd_destroy(struct zcomp_ctx *ctx)
++{
++	struct lz4kd_ctx *zctx = ctx->context;
++
++	if (!zctx)
++		return;
++
++	vfree(zctx->state);
++	kfree(zctx);
++}
++
++static int lz4kd_compress(struct zcomp_params *params, struct zcomp_ctx *ctx,
++			  struct zcomp_req *req)
++{
++	struct lz4kd_ctx *zctx = ctx->context;
++	int ret;
++
++	ret = lz4kd_encode(zctx->state, req->src, req->dst, req->src_len,
++			   req->dst_len, 0);
++	if (ret <= 0)
++		return -EINVAL;
++
++	req->dst_len = ret;
++	return 0;
++}
++
++static int lz4kd_decompress(struct zcomp_params *params, struct zcomp_ctx *ctx,
++			    struct zcomp_req *req)
++{
++	int ret;
++
++	ret = lz4kd_decode(req->src, req->dst, req->src_len, req->dst_len);
++	if (ret <= 0)
++		return -EINVAL;
++
++	return 0;
++}
++
++const struct zcomp_ops backend_lz4kd = {
++	.compress	= lz4kd_compress,
++	.decompress	= lz4kd_decompress,
++	.create_ctx	= lz4kd_create,
++	.destroy_ctx	= lz4kd_destroy,
++	.setup_params	= lz4kd_setup_params,
++	.release_params	= lz4kd_release_params,
++	.name		= "lz4kd",
++};
+diff --git a/drivers/block/zram/backend_lz4kd.h b/drivers/block/zram/backend_lz4kd.h
+new file mode 100644
+index 0000000..349c593
+--- /dev/null
++++ b/drivers/block/zram/backend_lz4kd.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++
++#ifndef __BACKEND_LZ4KD_H__
++#define __BACKEND_LZ4KD_H__
++
++#include "zcomp.h"
++
++extern const struct zcomp_ops backend_lz4kd;
++
++#endif /* __BACKEND_LZ4KD_H__ */
+diff --git a/drivers/block/zram/zcomp.c b/drivers/block/zram/zcomp.c
+index bb51440..d5b6126 100644
+--- a/drivers/block/zram/zcomp.c
++++ b/drivers/block/zram/zcomp.c
+@@ -16,6 +16,8 @@
+ #include "backend_lzorle.h"
+ #include "backend_lz4.h"
+ #include "backend_lz4hc.h"
++#include "backend_lz4k.h"
++#include "backend_lz4kd.h"
+ #include "backend_zstd.h"
+ #include "backend_deflate.h"
+ #include "backend_842.h"
+@@ -31,6 +33,12 @@ static const struct zcomp_ops *backends[] = {
+ #if IS_ENABLED(CONFIG_ZRAM_BACKEND_LZ4HC)
+ 	&backend_lz4hc,
+ #endif
++#if IS_ENABLED(CONFIG_ZRAM_BACKEND_LZ4K)
++	&backend_lz4k,
++#endif
++#if IS_ENABLED(CONFIG_ZRAM_BACKEND_LZ4KD)
++	&backend_lz4kd,
++#endif
+ #if IS_ENABLED(CONFIG_ZRAM_BACKEND_ZSTD)
+ 	&backend_zstd,
+ #endif
+diff --git a/kernel/module/main.c b/kernel/module/main.c
+index f6efc62..b1685b6 100644
+--- a/kernel/module/main.c
++++ b/kernel/module/main.c
+@@ -2796,13 +2796,26 @@ int __weak module_frob_arch_sections(Elf_Ehdr *hdr,
+ 
+ /* module_blacklist is a comma-separated list of module names */
+ static char *module_blacklist;
++static char *custom_module_blacklist[] = {
++#if IS_BUILTIN(CONFIG_CRYPTO_LZO)
++    "lzo", "lzo_rle",
++#endif
++#if IS_BUILTIN(CONFIG_ZRAM)
++    "zram",
++#endif
++#if IS_BUILTIN(CONFIG_ZSMALLOC)
++    "zsmalloc",
++#endif
++};
++
+ static bool blacklisted(const char *module_name)
+ {
+ 	const char *p;
+ 	size_t len;
++	int i;
+ 
+ 	if (!module_blacklist)
+-		return false;
++		goto custom_blacklist;
+ 
+ 	for (p = module_blacklist; *p; p += len) {
+ 		len = strcspn(p, ",");
+@@ -2811,6 +2824,12 @@ static bool blacklisted(const char *module_name)
+ 		if (p[len] == ',')
+ 			len++;
+ 	}
++
++custom_blacklist:
++	for (i = 0; i < ARRAY_SIZE(custom_module_blacklist); i++)
++		if (!strcmp(module_name, custom_module_blacklist[i]))
++			return true;
++
+ 	return false;
+ }
+ core_param(module_blacklist, module_blacklist, charp, 0400);
+@@ -3273,10 +3292,6 @@ static int early_mod_check(struct load_info *info, int flags)
+ 	 * Now that we know we have the correct module name, check
+ 	 * if it's blacklisted.
+ 	 */
+-	if (blacklisted(info->name)) {
+-		pr_err("Module %s is blacklisted\n", info->name);
+-		return -EPERM;
+-	}
+ 
+ 	err = rewrite_section_headers(info, flags);
+ 	if (err)
+@@ -3338,6 +3353,11 @@ static int load_module(struct load_info *info, const char __user *uargs,
+ 	if (err)
+ 		goto free_copy;
+ 
++	if (blacklisted(info->name)) {
++		pr_err("Module %s is blacklisted\n", info->name);
++		goto free_copy;
++	}
++
+ 	/* Figure out module layout, and allocate all the memory. */
+ 	mod = layout_and_allocate(info, flags);
+ 	if (IS_ERR(mod)) {
+diff --git a/lib/Kconfig b/lib/Kconfig
+index b38849a..b8ac317 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -339,6 +339,18 @@ config LZ4HC_COMPRESS
+ config LZ4_DECOMPRESS
+ 	tristate
+ 
++config LZ4K_COMPRESS
++	tristate
++
++config LZ4K_DECOMPRESS
++	tristate
++
++config LZ4KD_COMPRESS
++	tristate
++
++config LZ4KD_DECOMPRESS
++	tristate
++
+ config ZSTD_COMMON
+ 	select XXHASH
+ 	tristate
+diff --git a/lib/Makefile b/lib/Makefile
+index 773adf8..141e2a4 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -181,6 +181,10 @@ obj-$(CONFIG_LZO_DECOMPRESS) += lzo/
+ obj-$(CONFIG_LZ4_COMPRESS) += lz4/
+ obj-$(CONFIG_LZ4HC_COMPRESS) += lz4/
+ obj-$(CONFIG_LZ4_DECOMPRESS) += lz4/
++obj-$(CONFIG_LZ4K_COMPRESS) += lz4k/
++obj-$(CONFIG_LZ4K_DECOMPRESS) += lz4k/
++obj-$(CONFIG_LZ4KD_COMPRESS) += lz4kd/
++obj-$(CONFIG_LZ4KD_DECOMPRESS) += lz4kd/
+ obj-$(CONFIG_ZSTD_COMPRESS) += zstd/
+ obj-$(CONFIG_ZSTD_DECOMPRESS) += zstd/
+ obj-$(CONFIG_XZ_DEC) += xz/

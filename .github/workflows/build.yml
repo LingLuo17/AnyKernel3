@@ -794,14 +794,29 @@ jobs:
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           # 前置检查：所有补丁资源必须存在，缺失时按兼容跳过策略处理，避免修改到一半再失败
+          # 版本补丁来源：本仓库自带 zram_patch/<ver>/ 优先，SukiSU_patch 兜底；
+          # 上游尚未覆盖的版本（如 6.12）由本仓库补齐
+          pick_zram_patch() {
+            local name="$1"
+            if [ -f "$ZZH_PATCHES/zram_patch/${{ inputs.kernel_version }}/$name" ]; then
+              echo "$ZZH_PATCHES/zram_patch/${{ inputs.kernel_version }}/$name"
+            elif [ -f "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/$name" ]; then
+              echo "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/$name"
+            else
+              echo ""
+            fi
+          }
+          LZ4KD_PATCH=$(pick_zram_patch lz4kd.patch)
+          LZ4K_OPLUS_PATCH=$(pick_zram_patch lz4k_oplus.patch)
+
           MISSING=""
           [ -d "$ZZH_PATCHES/zram/lz4" ] || MISSING="$MISSING zram/lz4"
           [ -f "$ZZH_PATCHES/zram/apply_lz4_neon.sh" ] || MISSING="$MISSING zram/apply_lz4_neon.sh"
           [ -d "$ZZH_PATCHES/zram/include/linux" ] || MISSING="$MISSING zram/include/linux"
           [ -d "$SUKISU_PATCHES/other/zram/lz4k" ] || MISSING="$MISSING SukiSU_patch/other/zram/lz4k"
           [ -d "$SUKISU_PATCHES/other/zram/lz4k_oplus" ] || MISSING="$MISSING SukiSU_patch/other/zram/lz4k_oplus"
-          [ -f "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4kd.patch"
-          [ -f "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch"
+          [ -n "$LZ4KD_PATCH" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4kd.patch"
+          [ -n "$LZ4K_OPLUS_PATCH" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch"
           if [ -n "$MISSING" ]; then
             if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
               echo "::warning title=ZRAM 已跳过::缺少 ZRAM 补丁资源:$MISSING，已跳过 ZRAM 功能"
@@ -848,12 +863,12 @@ jobs:
           cp -r $SUKISU_PATCHES/other/zram/lz4k/crypto/* ./crypto/
           cp -r $SUKISU_PATCHES/other/zram/lz4k_oplus ./lib/
 
-          cp $SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch ./
+          cp "$LZ4KD_PATCH" ./lz4kd.patch
           if ! patch -p1 -F 3 < lz4kd.patch; then
             echo "::warning::lz4kd.patch 应用失败，可能已应用或上下文不匹配"
           fi
 
-          cp $SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch ./
+          cp "$LZ4K_OPLUS_PATCH" ./lz4k_oplus.patch
           if ! patch -p1 -F 3 < lz4k_oplus.patch; then
             echo "::warning::lz4k_oplus.patch 应用失败，可能已应用或上下文不匹配"
           fi
@@ -933,7 +948,7 @@ jobs:
             sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
           fi
 
-          if [ "${{ inputs.android_version }}" = "android14" ] || [ "${{ inputs.android_version }}" = "android15" ]; then
+          if [ "${{ inputs.android_version }}" = "android14" ] || [ "${{ inputs.android_version }}" = "android15" ] || [ "${{ inputs.android_version }}" = "android16" ]; then
             sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$KERNEL_ROOT/common/modules.bzl"
           fi
 
