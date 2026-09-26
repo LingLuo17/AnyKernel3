@@ -128,13 +128,24 @@ jobs:
             fi
           }
 
-          DOWNLOAD_LIST=""
+          # 从 APK 文件名提取实际 versionCode
+          # 例: ReSukiSU_v4.2.0-rc3_35180-arm64-v8a-release.apk -> 35180
+          extract_apk_version() {
+            local apk_name="$1"
+            echo "$apk_name" | grep -oE '_[0-9]+' | tail -n 1 | tr -d '_'
+          }
+
           BEST_VERSION=0
+          BEST_ACTUAL=0
           BEST_BUILD_ID=""
           BEST_BRANCH=""
+          BEST_DIR=""
+          MATCHED=0
+          FETCHED=0
+          MAX_FETCH=6
           RUNS_URL="https://api.github.com/repos/$REPO/actions/workflows/$FILENAME/runs?status=success&per_page=30"
 
-          echo "开始查找不高于 KSU $TARGET_KSU_VERSION 的 Manager 产物..."
+          echo "开始查找不高于内核 KSU $TARGET_KSU_VERSION 的 Manager 产物..."
           for PAGE in $(seq 1 10); do
             echo "--------------------------------------------------"
             echo "正在检查第 ${PAGE} 页历史构建..."
@@ -159,6 +170,13 @@ jobs:
                 continue
               fi
 
+              # head_sha 推算值可能低于实际产物（PR 构建检出的是 merge 提交，
+              # APK versionCode 以构建时的 HEAD 为准），必须下载后用 APK 文件名实测校验
+              if [ "$FETCHED" -ge "$MAX_FETCH" ]; then
+                echo "已下载校验 $FETCHED 个候选，达到上限 $MAX_FETCH，停止检索"
+                break 2
+              fi
+
               ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                 "https://api.github.com/repos/$REPO/actions/runs/$BUILD_ID/artifacts")
               CANDIDATE_LIST=$(get_manager_artifacts "$ARTIFACTS")
@@ -167,36 +185,80 @@ jobs:
                 continue
               fi
 
-              if [ -z "$DOWNLOAD_LIST" ] || [ "$RUN_KSU_VERSION" -gt "$BEST_VERSION" ]; then
-                DOWNLOAD_LIST="$CANDIDATE_LIST"
-                BEST_VERSION="$RUN_KSU_VERSION"
-                BEST_BUILD_ID="$BUILD_ID"
-                BEST_BRANCH="$HEAD_BRANCH"
-                echo "候选 Manager: 构建 $BUILD_ID ($HEAD_BRANCH), KSU $RUN_KSU_VERSION"
+              FETCHED=$((FETCHED + 1))
+              CAND_DIR="manager-candidates/$BUILD_ID"
+              mkdir -p "$CAND_DIR"
+              echo "$CANDIDATE_LIST" | while IFS=$'\t' read -r NAME URL; do
+                if curl -sL --fail -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$CAND_DIR/artifact.zip" "$URL"; then
+                  mkdir -p "$CAND_DIR/$NAME"
+                  unzip -oq "$CAND_DIR/artifact.zip" -d "$CAND_DIR/$NAME" || echo "解压 $NAME 失败"
+                else
+                  echo "下载 $NAME 失败"
+                fi
+                rm -f "$CAND_DIR/artifact.zip"
+              done
+
+              APK_FILE=$(find "$CAND_DIR" -type f -name "*-arm64-v8a-release.apk" | head -n 1)
+              if [ -z "$APK_FILE" ]; then
+                echo "跳过构建 $BUILD_ID ($HEAD_BRANCH): artifact 中无 arm64-v8a release APK"
+                rm -rf "$CAND_DIR"
+                continue
+              fi
+              ACTUAL_VERSION=$(extract_apk_version "$(basename "$APK_FILE")" || true)
+              if ! [[ "$ACTUAL_VERSION" =~ ^[0-9]+$ ]]; then
+                # 文件名无法解析时信任 head_sha 推算值（兼容其他变体的命名格式）
+                ACTUAL_VERSION="$RUN_KSU_VERSION"
+              fi
+              if [ "$ACTUAL_VERSION" -gt "$TARGET_KSU_VERSION" ]; then
+                echo "跳过构建 $BUILD_ID ($HEAD_BRANCH): APK 实际版本 $ACTUAL_VERSION 高于内核 KSU $TARGET_KSU_VERSION（head_sha 推算 $RUN_KSU_VERSION 不可信）"
+                rm -rf "$CAND_DIR"
+                continue
               fi
 
-              if [ "$RUN_KSU_VERSION" -eq "$TARGET_KSU_VERSION" ]; then
+              if [ "$ACTUAL_VERSION" -eq "$TARGET_KSU_VERSION" ]; then
+                if [ -n "$BEST_DIR" ] && [ "$BEST_DIR" != "$CAND_DIR" ]; then rm -rf "$BEST_DIR"; fi
+                BEST_VERSION="$RUN_KSU_VERSION"
+                BEST_ACTUAL="$ACTUAL_VERSION"
+                BEST_BUILD_ID="$BUILD_ID"
+                BEST_BRANCH="$HEAD_BRANCH"
+                BEST_DIR="$CAND_DIR"
+                MATCHED=1
+                echo "精确匹配: 构建 $BUILD_ID ($HEAD_BRANCH), APK 实际版本 $ACTUAL_VERSION = 内核 KSU $TARGET_KSU_VERSION"
                 break 2
+              fi
+
+              # 回退候选：实际版本低于内核，保留最高者
+              if [ "$ACTUAL_VERSION" -gt "$BEST_ACTUAL" ]; then
+                if [ -n "$BEST_DIR" ]; then rm -rf "$BEST_DIR"; fi
+                BEST_VERSION="$RUN_KSU_VERSION"
+                BEST_ACTUAL="$ACTUAL_VERSION"
+                BEST_BUILD_ID="$BUILD_ID"
+                BEST_BRANCH="$HEAD_BRANCH"
+                BEST_DIR="$CAND_DIR"
+                echo "回退候选: 构建 $BUILD_ID ($HEAD_BRANCH), APK 实际版本 $ACTUAL_VERSION"
+              else
+                rm -rf "$CAND_DIR"
               fi
             done
           done
 
-          if [ -z "$DOWNLOAD_LIST" ]; then
-            echo "未获取到 KSU 版本小于等于 $TARGET_KSU_VERSION 的 Manager artifact 下载地址列表。"
+          if [ -z "$BEST_DIR" ] || [ ! -d "$BEST_DIR" ]; then
+            echo "未获取到 KSU 版本小于等于 $TARGET_KSU_VERSION 的 Manager artifact。"
             exit 1
           fi
-          echo "选择 Manager 构建 $BEST_BUILD_ID ($BEST_BRANCH), KSU $BEST_VERSION"
 
-          # 下载并解压所有 Manager 产物
-          echo "$DOWNLOAD_LIST" | while IFS=$'\t' read -r NAME URL; do
-            SAFE_NAME=$(echo "$NAME" | tr '/ ' '__')
-            ZIP_NAME="${{ inputs.kernelsu_variant }}-${SAFE_NAME}(${{ env.KSU_VERSION }}).zip"
-            echo "下载 $NAME -> $ZIP_NAME"
-            curl -L -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" -o "$ZIP_NAME" "$URL"
-            mkdir -p "manager-artifacts/$SAFE_NAME"
-            unzip -o "$ZIP_NAME" -d "manager-artifacts/$SAFE_NAME"
-            rm -rf "$ZIP_NAME"
-          done
+          if [ "$MATCHED" -ne 1 ]; then
+            echo "::warning::未找到实际版本等于内核 KSU $TARGET_KSU_VERSION 的官方 Manager，回退使用实际版本 $BEST_ACTUAL（构建 $BEST_BUILD_ID, $BEST_BRANCH）"
+          fi
+          echo "选择 Manager 构建 $BEST_BUILD_ID ($BEST_BRANCH), APK 实际版本 $BEST_ACTUAL"
+
+          # 采用选中的候选目录作为最终 Manager 产物
+          rm -rf manager-artifacts
+          mv "$BEST_DIR" manager-artifacts
+          rm -rf manager-candidates
+
+          # 导出 Manager 实际版本号，供 artifact 命名使用（与内核版本一致）
+          echo "MANAGER_VERSION=$BEST_ACTUAL" >> $GITHUB_ENV
 
           if [ "${{ inputs.kernelsu_variant }}" == "ReSukiSU" ]; then
             echo "仅保留 ReSukiSU arm64-v8a release 管理器..."
@@ -257,7 +319,8 @@ jobs:
         if: steps.add_KSU.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
-          name: ${{ inputs.kernelsu_variant }}-Manager(${{ env.KSU_VERSION }})
+          # 用 Manager APK 的实际版本命名，避免包名与内部 APK 版本不一致
+          name: ${{ inputs.kernelsu_variant }}-Manager(${{ env.MANAGER_VERSION || env.KSU_VERSION }})
           path: |
             manager-artifacts/**/*.apk
 
