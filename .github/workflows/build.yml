@@ -507,6 +507,14 @@ jobs:
             echo "KSU_LATEST_COMMIT_DATE=未知" >> $GITHUB_ENV
           fi
 
+      # builtin 的 ksyscall 回移引用 arch.h，但部分上游提交漏掉该文件。
+      # 只在引用且缺失时补齐；上游已提供的头文件不得覆盖。
+      - name: 补齐 SukiSU 架构兼容头文件
+        if: inputs.ksu_variant == 'SukiSU'
+        working-directory: ${{ env.KERNEL_ROOT }}
+        run: |
+          python3 "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/ensure_arch_header.py" KernelSU
+
       # SukiSU 的 builtin 分支（内建+SUSFS 产品线）与 main 分支相互独立，
       # UAPI 版本落后于官方管理器（管理器按 main 分支构建，UAPI 4）。
       # 内核 UAPI < 管理 UAPI 时，管理器首页会误报"需要更新内核"。
