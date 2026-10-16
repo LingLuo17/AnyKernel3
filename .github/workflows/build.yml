@@ -344,7 +344,7 @@ jobs:
           SYNC_OK=false
           for SYNC_ATTEMPT in 1 2 3; do
             echo "==> repo sync 第 ${SYNC_ATTEMPT}/3 次尝试"
-            if timeout --kill-after=30 20m $REPO --trace sync -c -j$(nproc --all) --no-tags --fail-fast; then
+            if timeout --kill-after=30 20m $REPO --trace sync -c -j4 --no-tags --fail-fast; then
               SYNC_OK=true
               break
             fi
