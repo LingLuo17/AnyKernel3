@@ -216,9 +216,10 @@ if [ -f "$FINASU_SELINUX_HIDE" ] && ! grep -q 'fake_state' "$FINASU_SELINUX_HIDE
   NEW_MODEL=1
 fi
 # 触发条件：
-#   >=6.6 主补丁在 selinuxfs.c 里定义 my_write_context（新式）
-#   <6.6（5.15/6.1）主补丁直接改 sel_write_context/sel_write_access，用 &fake_state（旧式）
-# 两者都要从 fake_state 切到 backup_sepolicy + 8 参 _with_policy，否则新形态 FinaSU 无
+#   <6.6（5.10/5.15/6.1）主补丁内联改 selinuxfs 调用点 / selinux_setprocattr，引用 &fake_state；
+#   >=6.6（6.6/6.12）主补丁用 backup_sepolicy + 内核侧自含的 my_security_context_to_sid，
+#   不引用 fake_state，无需本分支（条件里两个 grep 均不命中，自动跳过）。
+# <6.6 必须从 fake_state 切到 backup_sepolicy + 8 参 _with_policy，否则新形态 FinaSU 无
 # fake_state 定义会导致 ThinLTO 链接报 undefined symbol: fake_state。
 if [ "$NEW_MODEL" = 1 ] && [ -f security/selinux/selinuxfs.c ] \
   && { grep -q 'static ssize_t my_write_context' security/selinux/selinuxfs.c \
@@ -286,31 +287,40 @@ for _lab, _f in (("selinuxfs", fs), ("hooks", hk)):
     print("%s: _with_policy 8-arg normalize=%d decl=%d" % (_lab, _n2, _nd))
 
 _hs = open(hk, encoding="utf-8", errors="surrogateescape").read()
-# 去掉无条件 SETCURRENT 检查（df03912f）：覆盖 <6.6(&selinux_state) 与 >=6.6(无 state) 两种形态
-_removed = False
-for _rm in ("\terror = avc_has_perm(&selinux_state,\n\t\t\t\t     mysid, mysid, SECCLASS_PROCESS,\n\t\t\t\t     PROCESS__SETCURRENT, NULL);\n\n\tif (error)\n\t\treturn error;\n\n",
-            "\terror = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,\n\t\t\t\t     PROCESS__SETCURRENT, NULL);\n\n\tif (error)\n\t\treturn error;\n\n"):
-    if _hs.count(_rm) == 1:
-        _hs = _hs.replace(_rm, "", 1)
-        _removed = True
-        print("%s: rm_early_setcurrent OK" % hk)
-        break
-if not _removed:
-    print("::warning::%s: rm_early_setcurrent not matched" % hk)
-# 仅在 backup 解析失败时才检查 SETCURRENT
-_seq_done = False
-for _old2, _new2, _lab in (
-    ("\t\terror = security_context_to_sid_with_policy(backup_sepolicy, value, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error)\n\t\t\treturn error;\n",
-     "\t\terror = security_context_to_sid_with_policy(backup_sepolicy, value, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error) {\n\t\t\tint perm_error = avc_has_perm(&selinux_state, mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\n\t\t\treturn perm_error ?: error;\n\t\t}\n", "<6.6"),
-    ("\t\terror = security_context_to_sid_with_policy(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error)\n\t\t\treturn error;\n",
-     "\t\terror = security_context_to_sid_with_policy(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error) {\n\t\t\tint perm_error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\n\t\t\treturn perm_error ?: error;\n\t\t}\n", ">=6.6")):
-    if _hs.count(_old2) == 1:
-        _hs = _hs.replace(_old2, _new2, 1)
-        _seq_done = True
-        print("%s: seq(%s) OK" % (hk, _lab))
-        break
-if not _seq_done:
-    print("::warning::%s: seq not matched" % hk)
+# 主补丁 setprocattr 两种形态：
+#   旧形态（~2026-08 前的主补丁）：定义 my_setprocattr，内含无条件 SETCURRENT avc_has_perm
+#     —— 需要 rm_early 移除 + seq 重排（df03912f）；
+#   现行形态（2026-10 起的主补丁）：内联改 selinux_setprocattr，用 should_check_current +
+#     fake_error 门控 —— 权限顺序天然满足 df03912f，且 fake 解析经上文 setprocattr.ctx
+#     转换后已走 8 参 _with_policy（sidtab 同步内置），rm_early/seq 无目标代码。
+if "should_check_current" in _hs and "fake_error = security_context_to_sid_with_policy(backup_sepolicy, value, size, &tmp_sid, SECSID_NULL, GFP_KERNEL, NULL, NULL)" in _hs:
+    print("%s: 主补丁为现行门控形态（should_check_current+fake_error），rm_early_setcurrent/seq 不适用，侧信道语义已覆盖" % hk)
+else:
+    # 去掉无条件 SETCURRENT 检查（df03912f）：覆盖 <6.6(&selinux_state) 与 >=6.6(无 state) 两种形态
+    _removed = False
+    for _rm in ("\terror = avc_has_perm(&selinux_state,\n\t\t\t\t     mysid, mysid, SECCLASS_PROCESS,\n\t\t\t\t     PROCESS__SETCURRENT, NULL);\n\n\tif (error)\n\t\treturn error;\n\n",
+                "\terror = avc_has_perm(mysid, mysid, SECCLASS_PROCESS,\n\t\t\t\t     PROCESS__SETCURRENT, NULL);\n\n\tif (error)\n\t\treturn error;\n\n"):
+        if _hs.count(_rm) == 1:
+            _hs = _hs.replace(_rm, "", 1)
+            _removed = True
+            print("%s: rm_early_setcurrent OK" % hk)
+            break
+    if not _removed:
+        print("::warning::%s: rm_early_setcurrent not matched" % hk)
+    # 仅在 backup 解析失败时才检查 SETCURRENT
+    _seq_done = False
+    for _old2, _new2, _lab in (
+        ("\t\terror = security_context_to_sid_with_policy(backup_sepolicy, value, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error)\n\t\t\treturn error;\n",
+         "\t\terror = security_context_to_sid_with_policy(backup_sepolicy, value, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error) {\n\t\t\tint perm_error = avc_has_perm(&selinux_state, mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\n\t\t\treturn perm_error ?: error;\n\t\t}\n", "<6.6"),
+        ("\t\terror = security_context_to_sid_with_policy(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error)\n\t\t\treturn error;\n",
+         "\t\terror = security_context_to_sid_with_policy(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL, NULL, NULL);\n\t\tif (error) {\n\t\t\tint perm_error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\n\t\t\treturn perm_error ?: error;\n\t\t}\n", ">=6.6")):
+        if _hs.count(_old2) == 1:
+            _hs = _hs.replace(_old2, _new2, 1)
+            _seq_done = True
+            print("%s: seq(%s) OK" % (hk, _lab))
+            break
+    if not _seq_done:
+        print("::warning::%s: seq not matched" % hk)
 open(hk, "w", encoding="utf-8", errors="surrogateescape").write(_hs)
 for _f in (fs, hk):
     _s = open(_f, encoding="utf-8", errors="surrogateescape").read()
@@ -325,12 +335,15 @@ PYEOF
 fi
 
 # ==================== 移植 KernelSU 的 SELinux 隐藏侧信道修复（旧 fake_state 形态）====================
+# 仅当 SUSFS 主补丁为旧形态（定义 my_write_context/my_write_access/my_setprocattr）时适用。
 # 检测方把 /sys/fs/selinux/{context,access} 与 setprocattr 当 oracle：比对
 # 假策略(fake_state)与全局 selinux_state 的 SID、以及权限检查顺序，来识别隐藏。
 # SUSFS 主补丁实现的 my_write_context / my_write_access / my_setprocattr 缺这两点，
 # 这里按 KernelSU 的做法补齐：
 #   - sidtab 同步（KernelSU #3873）：用假策略解析后再同步进全局 sidtab，消除 SID 差异；
 #   - 权限检查顺序（KernelSU df03912f）：仅当 backup 解析失败时才做 SETCURRENT 检查。
+# 现行主补丁（2026-10 起）已不定义这三个函数：<6.6 的门控内联形态与 NEW_MODEL 分支的
+# 8 参 _with_policy 转换（sidtab 同步内置）已覆盖同等的侧信道修复，见下方 else 分支说明。
 if [ "${NEW_MODEL:-0}" != 1 ] && [ -f security/selinux/selinuxfs.c ] && grep -q 'static ssize_t my_write_context' security/selinux/selinuxfs.c \
   && [ -f security/selinux/hooks.c ] && grep -q 'static int my_setprocattr' security/selinux/hooks.c; then
   python3 - <<'PYEOF'
@@ -371,10 +384,22 @@ sed(hk, "seq+sync(<6.6)", r"(\t\terror = security_context_to_sid\(&fake_state, v
 sed(hk, "seq+sync(>=6.6)", r"(\t\terror = security_context_to_sid_with_policy\(backup_sepolicy, str, size, &sid, SECSID_NULL, GFP_KERNEL\);\n)\t\tif \(error\)\n\t\t\treturn error;\n",
     "\\1\t\tif (error) {\n\t\t\t/* FINASU_SEQ: 仅当 backup 解析失败时才做 SETCURRENT 检查（KernelSU df03912f） */\n\t\t\tint perm_error = avc_has_perm(mysid, mysid, SECCLASS_PROCESS, PROCESS__SETCURRENT, NULL);\n\t\t\treturn perm_error ?: error;\n\t\t}\n\t\t{\n\t\t\tu32 tmp_sid;\n\t\t\t/* FINASU_SIDTAB_SYNC (KernelSU #3873) */\n\t\t\tsecurity_context_to_sid(str, size, &tmp_sid, GFP_KERNEL);\n\t\t}\n")
 PYEOF
-  grep -n 'FINASU_SIDTAB_SYNC' security/selinux/selinuxfs.c | head
-  grep -n 'FINASU_SIDTAB_SYNC\|FINASU_SEQ' security/selinux/hooks.c | head
+  # 仅作信息输出；旧形态模式部分失配时 grep 无命中，必须 || true，否则 pipefail 会中断整个补丁步骤
+  grep -n 'FINASU_SIDTAB_SYNC' security/selinux/selinuxfs.c | head || true
+  grep -n 'FINASU_SIDTAB_SYNC\|FINASU_SEQ' security/selinux/hooks.c | head || true
 else
-  echo "::warning::未找到 SUSFS 的 my_write_context/my_setprocattr，跳过 SELinux 侧信道移植"
+  # 主补丁形态判定：
+  #   旧形态定义 my_write_context/my_write_access/my_setprocattr，缺失即异常，保留告警；
+  #   现行形态（2026-10 起的主补丁）不再定义这三个函数：<6.6 内联改 selinux_setprocattr /
+  #   selinuxfs 调用点（should_check_current+fake_error 门控），>=6.6 用 backup_sepolicy +
+  #   my_security_context_to_sid（内核侧自含）。侧信道修复（sidtab 同步 #3873、权限顺序
+  #   df03912f）由 NEW_MODEL 分支的 8 参 _with_policy 转换与门控校验覆盖，无需旧形态移植。
+  if grep -qE 'static ssize_t my_write_(context|access)' security/selinux/selinuxfs.c 2>/dev/null \
+    || grep -q 'static int my_setprocattr' security/selinux/hooks.c 2>/dev/null; then
+    echo "::warning::未找到 SUSFS 的 my_write_context/my_setprocattr，跳过 SELinux 侧信道移植"
+  else
+    echo "SUSFS 主补丁为现行形态（无 my_write_context/my_setprocattr）：侧信道修复由门控校验与 8 参 _with_policy 内置同步覆盖，无需旧形态移植"
+  fi
 fi
 
 # ==================== SUSFS 路径隐藏回退（跨命名空间 / FUSE） ====================
