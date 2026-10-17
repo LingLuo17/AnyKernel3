@@ -209,7 +209,7 @@ jobs:
             else
               FROM=$(date -u -d "today - $DAYS days" +%Y-%m-%d)
             fi
-            echo "检索 $FROM ~ $TODAY 期间官方 $EXPECTED_BRANCH 分支 push 构建..."
+            echo "检索 $FROM ~ $TODAY 期间官方 $EXPECTED_BRANCH 分支构建..."
             for PAGE in 1 2 3; do
               RUNS=""
               for ATTEMPT in 1 2 3; do
@@ -229,10 +229,11 @@ jobs:
                 HEAD_BRANCH=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$INDEX].head_branch")
                 EVENT=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$INDEX].event")
                 CREATED=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$INDEX].created_at")
-                # 只认官方默认分支 push 上传的构建，跳过 PR / 其他分支构建
+                # 认领官方默认分支上传的构建（push 与 workflow_dispatch 均可，
+                # 手动触发常用于正式上传前测试），跳过 PR / 其他分支构建
                 #（SukiSU/BakaSU 为 main，FinaSU 为 master）
-                if [ "$HEAD_BRANCH" != "$EXPECTED_BRANCH" ] || [ "$EVENT" != "push" ]; then
-                  echo "跳过构建 $BUILD_ID ($HEAD_BRANCH/$EVENT): 非官方 $EXPECTED_BRANCH 分支 push 构建"
+                if [ "$HEAD_BRANCH" != "$EXPECTED_BRANCH" ] || { [ "$EVENT" != "push" ] && [ "$EVENT" != "workflow_dispatch" ]; }; then
+                  echo "跳过构建 $BUILD_ID ($HEAD_BRANCH/$EVENT): 非官方 $EXPECTED_BRANCH 分支构建"
                   continue
                 fi
                 printf '%s\t%s\t%s\n' "$CREATED" "$BUILD_ID" "$HEAD_SHA" >> "$CAND_FILE"
@@ -245,12 +246,12 @@ jobs:
 
           if [ ! -s "$CAND_FILE" ]; then
             rm -f "$CAND_FILE"
-            echo "未找到官方 $EXPECTED_BRANCH 分支 push 上传的 Manager 构建。"
+            echo "未找到官方 $EXPECTED_BRANCH 分支上传的 Manager 构建。"
             exit 1
           fi
           # sort -u 去重（窗口扩大后会重复收集），按创建时间降序（最新优先）
           CAND_COUNT=$(sort -u -t$'\t' -k1,1r "$CAND_FILE" | wc -l)
-          echo "共找到 $CAND_COUNT 个官方 $EXPECTED_BRANCH 分支 push 构建，从最新开始逐个下载（以 APK 文件名实测版本）..."
+          echo "共找到 $CAND_COUNT 个官方 $EXPECTED_BRANCH 分支构建，从最新开始逐个下载（以 APK 文件名实测版本）..."
 
           while IFS=$'\t' read -r CREATED BUILD_ID HEAD_SHA; do
             ARTIFACTS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \

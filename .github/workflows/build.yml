@@ -644,59 +644,19 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/scripts/finasu_compat/apply.sh" KernelSU
 
       # SukiSU 的 builtin 分支（内建+SUSFS 产品线）与 main 分支相互独立，
-      # UAPI 版本落后于官方管理器（管理器按 main 分支构建，UAPI 5）。
-      # 内核 UAPI < 管理 UAPI 时，管理器 requiresNewKernel = true，
-      # 首页报"需要更新内核"（Natives.kt: managerUAPIVersion > kernelUAPIVersion）。
-      # 此步骤把官方 main 的 UAPI 2->5 常量移植到 builtin 检出：
-      #   - UAPI 3/4: su-session fd + KSU_GET_INFO_FLAG_BUNDLED
-      #   - UAPI 5:   EVENT_SERVICES（内核侧 dispatch.c 已随 70fa0e092
-      #     同步进来，仅缺常量定义，由 sukisu_compat/builtin-sync-fixes.patch
-      #     在后续步骤补齐）
-      # 若上游同步 UAPI >= 5 则本步骤自动跳过。
+      # 官方管理器 APK 始终按 main 分支构建。main 抬升
+      # KERNEL_SU_UAPI_VERSION 时（如 3b60791 UAPI 6 新增
+      # KSU_IOCTL_LOOKUP_SYMBOLS + KSU_GET_INFO_FLAG_PREINIT），builtin
+      # 检出内核 UAPI 落后于管理器，首页报"需要更新内核"
+      # （Natives.kt: managerUAPIVersion > kernelUAPIVersion）。
+      # 此步骤动态同步：读取官方 main 的 uapi/supercall.h，把缺失常量/结构
+      # 按 main 原文移植进 builtin 检出并抬升 UAPI 号，UAPI >= 6 时附带
+      # 注入 LOOKUP_SYMBOLS 处理器 + symbol_resolver 内核侧能力；
+      # 上游 builtin 自行同步后自动跳过，详见 scripts/ksu_uapi_sync/sync_uapi.sh
       - name: 同步 SukiSU 内核 UAPI 版本（对齐官方管理器）
         if: inputs.ksu_variant == 'SukiSU'
         working-directory: ${{ env.KERNEL_ROOT }}
-        run: |
-          # builtin 分支: kernel/include/uapi/supercall.h；main 分支: uapi/supercall.h
-          UAPI_FILE=""
-          for f in KernelSU/kernel/include/uapi/supercall.h KernelSU/uapi/supercall.h; do
-            if [ -f "$f" ]; then
-              UAPI_FILE="$f"
-              break
-            fi
-          done
-          if [ -z "$UAPI_FILE" ]; then
-            echo "::error::未找到 supercall.h，SukiSU 源码布局可能已变化"
-            exit 1
-          fi
-
-          read_uapi() {
-            grep -ohE 'KERNEL_SU_UAPI_VERSION[^0-9]*[0-9]+' "$UAPI_FILE" | grep -oE '[0-9]+' | tail -n 1
-          }
-
-          CURRENT_UAPI=$(read_uapi)
-          echo "builtin 分支当前 UAPI 版本: ${CURRENT_UAPI:-未知}"
-
-          if [ "${CURRENT_UAPI:-0}" -ge 5 ]; then
-            echo "上游已包含 UAPI >= 5，跳过本地对齐补丁"
-          else
-            if ! patch -p1 --forward -d KernelSU < "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/builtin-uapi4.patch"; then
-              echo "::error::UAPI 对齐补丁应用失败：builtin 分支 supercall 代码可能已更新，请重新生成 scripts/ksu_uapi_sync/builtin-uapi4.patch"
-              exit 1
-            fi
-            echo "已应用 UAPI 5 对齐补丁 (UAPI 号 2->5 + FLAG_BUNDLED/EVENT_SERVICES 常量)"
-          fi
-
-          FINAL_UAPI=$(read_uapi)
-          if [ "${FINAL_UAPI:-0}" -ne 5 ]; then
-            echo "::error::UAPI 版本校验失败（期望 5，实际 ${FINAL_UAPI:-未知}）"
-            exit 1
-          fi
-          if ! grep -q "ksu_install_su_fd" KernelSU/kernel/supercall/supercall.c; then
-            echo "::error::ksu_install_su_fd 校验失败，UAPI 补丁不完整"
-            exit 1
-          fi
-          echo "内核 UAPI 已对齐官方管理器 (v4)，刷入后不再出现\"需要更新内核\"提示"
+        run: bash "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/sync_uapi.sh" KernelSU
 
       # SukiSU builtin 分支的 hook/lsm_hook.c 仍以旧签名调用
       # security_add_hooks(hooks, count, "ksu")，6.8+ 内核要求 const struct lsm_id *，

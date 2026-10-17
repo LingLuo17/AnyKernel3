@@ -201,6 +201,36 @@ if [ -f "$UAPI_FILE" ] && grep -q "DECLARE(__u32, KSU_IOCTL_KPM, _IOWR" "$UAPI_F
   [ "$(grep -c 'DECLARE(__u32, KSU_IOCTL_KPM,' "$UAPI_FILE")" -eq 1 ] \
     || fail "supercall.h KSU_IOCTL_KPM 重复声明未消除"
   echo "supercall.h: KSU_IOCTL_MANAGER 已按 main 分支写法补齐，KSU_IOCTL_KPM 重复声明已消除"
+elif [ -f "$UAPI_FILE" ] && ! grep -q 'KSU_IOCTL_MANAGER' "$UAPI_FILE" \
+  && grep -q 'DECLARE(__u32, KSU_IOCTL_KPM, _IOC(_IOC_READ | _IOC_WRITE, .K., 200, 0))' "$UAPI_FILE" \
+  && [ -f "$KSU_DIR/kernel/supercall/dispatch.c" ] \
+  && grep -q '\.cmd = KSU_IOCTL_MANAGER,' "$KSU_DIR/kernel/supercall/dispatch.c"; then
+  # 上游 c95d6e2c/0af2cf9 自行修正了 KSU_IOCTL_KPM 笔误（恢复 200 号），却没有补回
+  # KSU_IOCTL_MANAGER 的声明——dispatch.c 处理表仍引用它，全部平台报
+  # "use of undeclared identifier 'KSU_IOCTL_MANAGER'"。按 main 分支写法
+  # （KSU_IOCTL_MANAGER = _IOWR('K', 106, struct ksu_manager_cmd)，struct 由
+  # manager.h 提供，supercall.h 已 include）在 KSU_IOCTL_KPM 声明前补上，幂等；
+  # 上游自行补齐后按内容检测自动跳过。
+  echo "应用 supercall.h 管理器 ioctl 补齐 (上游自修笔误后缺 KSU_IOCTL_MANAGER 声明)..."
+  python3 - "$UAPI_FILE" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+s = open(path, encoding="utf-8", errors="surrogateescape").read()
+kpm = "DECLARE(__u32, KSU_IOCTL_KPM, _IOC(_IOC_READ | _IOC_WRITE, 'K', 200, 0));"
+mgr = "DECLARE(__u32, KSU_IOCTL_MANAGER, _IOWR('K', 106, struct ksu_manager_cmd));"
+if s.count(kpm) != 1:
+    print("::error::supercall.h KSU_IOCTL_KPM 声明形态不是预期（count=%d）" % s.count(kpm))
+    sys.exit(1)
+open(path, "w", encoding="utf-8", errors="surrogateescape").write(
+    s.replace(kpm, mgr + "\n" + kpm, 1))
+print("supercall.h: KSU_IOCTL_MANAGER 声明已插入（106 号，struct ksu_manager_cmd）")
+PYEOF
+  grep -q "DECLARE(__u32, KSU_IOCTL_MANAGER, _IOWR('K', 106, struct ksu_manager_cmd));" "$UAPI_FILE" \
+    || fail "supercall.h KSU_IOCTL_MANAGER 补齐后校验失败"
+  [ "$(grep -c 'DECLARE(__u32, KSU_IOCTL_KPM,' "$UAPI_FILE")" -eq 1 ] \
+    || fail "supercall.h KSU_IOCTL_KPM 声明数量异常"
+  echo "supercall.h: KSU_IOCTL_MANAGER 已按 main 分支写法补齐（106 号，struct ksu_manager_cmd）"
 else
   echo "supercall.h 无 PR #987 的 KSU_IOCTL_KPM 笔误，跳过"
 fi
