@@ -7,6 +7,8 @@
 # 调用前必须将工作目录设为 $KERNEL_ROOT
 set -eo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 echo "应用 SUSFS 补丁..."
 
 SUSFS_PATCH="50_add_susfs_in_gki-$ANDROID_VERSION-$KERNEL_VERSION.patch"
@@ -71,11 +73,10 @@ if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then
     fi
     adjust_legacy_fdinfo_context
   fi
-  if [[ "$OS_PATCH_LEVEL" == "lts" ]]; then
-    echo "临时调整 Android 13 5.15 LTS 头文件上下文"
-    sed -i '/^#include <trace\/hooks\/blk.h>$/d' fs/namespace.c
-    sed -i '/^#include <trace\/hooks\/mm.h>$/d' fs/proc/task_mmu.c
-  fi
+  # 5.15.220(LTS) 原生含 #include <trace/hooks/{mm,blk}.h>。上游 rebase 后
+  # 主补丁已把这两行当作 susfs_def.h 插入 hunk 的上下文，旧版「先删后补」的
+  # 临时调整反而会让 hunk 整段被拒，故不再删除；缺失上下文的版本由
+  # normalize_trace_ctx.py 归一化补丁副本处理。
 fi
 
 if [[ "$ANDROID_VERSION" == "android14" && "$KERNEL_VERSION" == "6.1" ]]; then
@@ -181,6 +182,12 @@ if grep -q '^ static int thaw_super_locked' "$SUSFS_PATCH" \
   sed -i '/^#include <trace\/hooks\/fs.h>$/,+1d' fs/super.c
   SUPER_FS_H_REMOVED=1
 fi
+
+# 上游 rebase 到 5.15.211 后，susfs_def.h 的插入 hunk 把 trace/hooks 头文件
+# 当成了上下文：5.15.74~194 源码没有这些行，hunk 会整段被拒，最终因
+# SUSFS_IS_INODE_* 隐式声明在 clang -Werror 处中断。按源码实际内容归一化补丁副本。
+echo "归一化 SUSFS 头文件上下文"
+python3 "$SCRIPT_DIR/normalize_trace_ctx.py" "$SUSFS_PATCH"
 
 patch -p1 < "$SUSFS_PATCH" || true
 
@@ -794,3 +801,14 @@ if [[ "$ANDROID_VERSION" == "android16" && "$KERNEL_VERSION" == "6.12" ]]; then
     echo "已修复 setuid_hook.c 重复定义问题"
   fi
 fi
+
+# 守护：主补丁若再次因上下文漂移漏掉 susfs_def.h，在这里给出可读错误，
+# 而不是等到编译 fs/proc/task_mmu.c 时才报一串 SUSFS_IS_INODE_* 隐式声明
+for SUSFS_SRC in fs/proc/task_mmu.c fs/namespace.c; do
+  [[ -f "$SUSFS_SRC" ]] || continue
+  if grep -qE 'SUSFS_IS_INODE_|CL_COPY_MNT_NS' "$SUSFS_SRC" \
+    && ! grep -qF '#include <linux/susfs_def.h>' "$SUSFS_SRC"; then
+    echo "::error::$SUSFS_SRC 使用了 SUSFS 宏但缺少 linux/susfs_def.h，主补丁 hunk 未应用"
+    exit 1
+  fi
+done
