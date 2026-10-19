@@ -1371,6 +1371,35 @@ jobs:
           CONFIG_KSU_SUSFS_SUS_MAP=y
           EOF
 
+      # Android 13 / 5.15: 上游 SUSFS 补丁的 include hunk 可能因上下文漂移被拒绝。
+      # 只补回缺失的头文件引用，不更改 SUSFS 逻辑或其他内核版本。
+      - name: 修复 Android 13 5.15 SUSFS 头文件引用
+        if: inputs.enable_susfs && inputs.android_version == 'android13' && inputs.kernel_version == '5.15'
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="$KERNEL_ROOT/common/fs/proc/task_mmu.c"
+          header="$KERNEL_ROOT/common/include/linux/susfs_def.h"
+          if grep -q 'SUSFS_IS_INODE_\(OPEN_REDIRECT\|SUS_MAP\)' "$file"; then
+            test -f "$header" || { echo "::error::SUSFS 标头不存在: $header"; exit 1; }
+            if ! grep -qF '#include <linux/susfs_def.h>' "$file"; then
+              sed -i '1i #include <linux/susfs_def.h>' "$file"
+              echo "已补齐 task_mmu.c 的 SUSFS 标头引用"
+            fi
+          fi
+
+      # 旧版 GKI 5.15 构建中的 clang-14 需要系统 ld 供主机工具链接。
+      - name: 修复 Android 13 5.15 主机链接器
+        if: inputs.android_version == 'android13' && inputs.kernel_version == '5.15'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ld >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y binutils
+          fi
+          command -v ld
+
       - name: 配置内核名称
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
