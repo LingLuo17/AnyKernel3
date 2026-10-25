@@ -884,19 +884,33 @@ jobs:
             exit 1
           }
 
-          echo "自动选择 NTSync 补丁: ${NTSYNC_PATCH}.patch"
-          if ! wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/ntsync_base.patch"; then
-            ntsync_fail "NTSync 基础补丁下载失败"
+          # Apply the base patch only when NTSync is absent.
+          if [[ -f drivers/misc/ntsync.c && -f include/uapi/linux/ntsync.h ]]; then
+            echo "NTSync sources already exist; skipping base patch"
+          elif [[ ! -e drivers/misc/ntsync.c && ! -e include/uapi/linux/ntsync.h ]]; then
+            wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/main/NTsync/ntsync_base.patch" ||
+              ntsync_fail "NTSync base patch download failed"
+          
+            patch --batch --forward -p1 < ntsync_base.patch ||
+              ntsync_fail "NTSync base patch failed"
+          else
+            ntsync_fail "Incomplete NTSync sources (driver/header mismatch)"
           fi
-          if ! wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/refs/heads/main/NTsync/${NTSYNC_PATCH}.patch"; then
-            ntsync_fail "NTSync 平台补丁 ${NTSYNC_PATCH}.patch 下载失败"
-          fi
-
-          if ! patch -p1 < "ntsync_base.patch"; then
-            ntsync_fail "NTSync 基础补丁应用失败（可能不兼容当前内核）"
-          fi
-          if ! patch -p1 < "${NTSYNC_PATCH}.patch"; then
-            ntsync_fail "NTSync 平台补丁应用失败（可能不兼容当前内核）"
+          
+          # Apply the compatibility patch only when integration is incomplete.
+          if grep -q '^config NTSYNC$' drivers/misc/Kconfig &&
+             grep -Fq 'obj-$(CONFIG_NTSYNC)' drivers/misc/Makefile &&
+             ! grep -A4 '^config NTSYNC$' drivers/misc/Kconfig | grep -q 'depends on BROKEN'; then
+            echo "NTSync already integrated; skipping compatibility patch"
+          else
+            wget -q "https://raw.githubusercontent.com/Goldzxcbug/Droidspaces_Kernel_patch/main/NTsync/${NTSYNC_PATCH}.patch" ||
+              ntsync_fail "NTSync compatibility patch download failed"
+          
+            patch --batch --forward --dry-run -p1 < "${NTSYNC_PATCH}.patch" ||
+              ntsync_fail "NTSync compatibility patch is incompatible"
+          
+            patch --batch --forward -p1 < "${NTSYNC_PATCH}.patch" ||
+              ntsync_fail "NTSync compatibility patch failed"
           fi
 
           cd ..
