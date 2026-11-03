@@ -123,7 +123,7 @@ jobs:
       #       上游没有正式版 Release 时（如 BakaSU 只有 rc 预发布），
       #       改用官方默认分支最新上传构建，内核仍锁定该构建提交
       # 最新：管理器取与默认分支 HEAD 版本一致的最新构建（不限分支），内核锁定该 HEAD；
-      #       FinaSU 取 build-manager.yml 最新构建，内核锁定该构建提交
+      #       BakaSU/FinaSU 直接取 build-manager.yml 最新构建，内核锁定该构建提交
       - name: 选择管理器来源（构建通道）
         id: channel
         run: |
@@ -407,10 +407,15 @@ jobs:
 
           # 最新通道：先锁定默认分支 HEAD，再把管理器限定为「版本与该 HEAD 一致」的构建，
           # 避免出现内核 35249 / 管理器 35248 这种版本错位。
-          # FinaSU 例外：直接取 build-manager.yml 的最新构建，内核锁定该构建提交。
+          # BakaSU/FinaSU 例外：不锁默认分支 HEAD，直接取 build-manager.yml 按创建时间
+          # 倒序的最新成功构建，内核锁定该构建提交，保证管理器与内核版本严格一致。
+          LATEST_PICK_BUILD=0
+          if [ "$VARIANT" = "BakaSU" ] || [ "$VARIANT" = "FinaSU" ]; then
+            LATEST_PICK_BUILD=1
+          fi
           HEAD_SHA=""
           HEAD_VERSION=""
-          if [ "${PIN_MODE:-pin}" = "head" ] && [ "$VARIANT" != "FinaSU" ]; then
+          if [ "${PIN_MODE:-pin}" = "head" ] && [ "$LATEST_PICK_BUILD" = 0 ]; then
             HEAD_SHA=$(git -C KernelSU rev-parse "origin/${EXPECTED_BRANCH}^{commit}" 2>/dev/null || true)
             if [ -z "$HEAD_SHA" ]; then
               HEAD_SHA=$(git ls-remote "https://github.com/$REPO.git" "refs/heads/$EXPECTED_BRANCH" 2>/dev/null | awk '{print $1}')
@@ -520,7 +525,7 @@ jobs:
           fi
 
           ORDERED_FILE=$(mktemp)
-          if [ "$VARIANT" == "FinaSU" ]; then
+          if [ "$LATEST_PICK_BUILD" = 1 ]; then
             # 最新通道：严格按构建时间倒序，取 build-manager.yml 最新成功构建
             sort -t$'\t' -k1,1r "$CAND_UNIQ" \
               | awk -F'\t' '{ print "0\t" $0 }' > "$ORDERED_FILE"
@@ -637,14 +642,14 @@ jobs:
             fi
           fi
 
-          if [ "${PIN_MODE:-pin}" = "head" ] && [ -n "$HEAD_SHA" ] && [ "$VARIANT" != "FinaSU" ]; then
+          if [ "${PIN_MODE:-pin}" = "head" ] && [ -n "$HEAD_SHA" ] && [ "$LATEST_PICK_BUILD" = 0 ]; then
             if [ -n "$HEAD_VERSION" ] && [ "$MANAGER_VERSION" != "$HEAD_VERSION" ]; then
               echo "::warning::最新通道：未找到与 $EXPECTED_BRANCH HEAD 版本 $HEAD_VERSION 一致的管理器，回退到 $MANAGER_VERSION"
             fi
             echo "最新通道：内核锁定 $EXPECTED_BRANCH HEAD ${HEAD_SHA:0:8}，管理器版本 $MANAGER_VERSION"
             echo "ksuCommit=$HEAD_SHA" >> $GITHUB_OUTPUT
           else
-            if [ "$VARIANT" == "FinaSU" ]; then
+            if [ "${PIN_MODE:-pin}" = "head" ] && [ "$LATEST_PICK_BUILD" = 1 ]; then
               echo "最新通道：内核锁定 build-manager 构建提交 ${MANAGER_HEAD_SHA:0:8}，管理器版本 $MANAGER_VERSION"
             else
               echo "内核锁定构建提交 ${MANAGER_HEAD_SHA:0:8}，管理器版本 $MANAGER_VERSION"
