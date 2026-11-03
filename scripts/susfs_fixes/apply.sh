@@ -92,6 +92,34 @@ if [[ ! "$CURRENT_SUB" =~ ^[0-9]+$ ]]; then
   CURRENT_SUB=99999
 fi
 
+# ---- susfs4ksu R28 getpriority/priority uid filter 开关归一化 ----
+# 该特性整套代码（含 susfs_switch_to_ksu_domain / susfs_restore_creds 两个辅助
+# 函数）以 CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER 为开关，但 SukiSU(builtin)、
+# BakaSU、FinaSU 的原生驱动 Kconfig 均未定义该选项，同时 SukiSU 驱动的
+# supercall 分发（CMD_SUSFS_SET_PRIORITY_UID_FILTER）与 pkg_observer 无条件调用
+# susfs_set_priority_uid_filter / susfs_parse_priority_app_strings，于是：
+#   - susfs.c 的两个辅助函数失去唯一调用方，clang -Werror,-Wunused-function
+#     直接中断编译（FinaSU/BakaSU/SukiSU 三个变体均复现）；
+#   - susfs.h 中的声明被裁掉，SukiSU 驱动侧报 -Wimplicit-function-declaration。
+# 把开关上提到 CONFIG_KSU_SUSFS（启用 SUSFS 时恒为 y）使特性完整可用。
+# 仅改写预处理指令行：susfs.c 里 copy_config_to_buf() 的
+# "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n" 字符串字面量保持原样，管理器
+# 仍能按原名识别该特性。
+normalize_priority_uid_filter_guard() {
+  local f
+  # 主补丁中的 +#ifdef/+#endif 行（不触碰上下文行，hunk 行数不变，可正常应用）
+  [[ -f "$SUSFS_PATCH" ]] \
+    && sed -i -E '/^[+ ]*#[[:space:]]*(ifdef|ifndef|endif).*CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER/ s/CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER/CONFIG_KSU_SUSFS/' "$SUSFS_PATCH"
+  # 已拷贝进内核树的源码与头文件
+  for f in fs/susfs.c include/linux/susfs.h; do
+    [[ -f "$f" ]] || continue
+    sed -i -E '/^#[[:space:]]*(ifdef|ifndef|endif).*CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER/ s/CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER/CONFIG_KSU_SUSFS/' "$f"
+  done
+}
+
+normalize_priority_uid_filter_guard
+echo "已把 PRIORITY_UID_FILTER 开关归一化为 CONFIG_KSU_SUSFS"
+
 # 兼容缺少 VMA padding 接口的 5.10.66～209、5.15.74～144 和 6.1.25～68
 if grep -qF 'VMA_PAD_START(vma)' "$SUSFS_PATCH" \
   && ! grep -Rqs 'VMA_PAD_START' ./include/linux; then
