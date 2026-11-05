@@ -721,8 +721,16 @@ if [[ -n "$SUPER_FS_H_REMOVED" ]] \
 fi
 
 fix_missing_vm_flags_clear() {
-  if [[ "$OS_PATCH_LEVEL" == "2024-11" ]] && grep -qF 'vm_flags_clear(new_vma, VM_PAD_MASK);' ./mm/mmap.c; then
+  # Google 2024-11 及更新的 deprecated 分支带入了 16KB 页迁移的 VMA padding：
+  # mm/mmap.c 的 copy_vma() 调用 vm_flags_clear()，但同分支 include/linux 未
+  # 提供该（6.3+ 才引入的）helper，clang -Werror 报隐式声明中断编译。
+  # 按源码内容检测：helper 齐备（6.6+ 原生）或无调用时自动跳过，
+  # 不再按 OS_PATCH_LEVEL 猜测命中范围（android13-5.10 / android14-5.15 的
+  # 2024-11 分支与 android12-5.10 / android13-5.15 同样命中）。
+  if grep -qF 'vm_flags_clear(new_vma, VM_PAD_MASK);' ./mm/mmap.c \
+    && ! grep -Rqs 'vm_flags_clear' ./include/linux; then
     sed -i 's/vm_flags_clear(new_vma, VM_PAD_MASK);/new_vma->vm_flags \&= ~VM_PAD_MASK;/' ./mm/mmap.c
+    echo "已替换 mm/mmap.c 缺失 helper 的 vm_flags_clear 调用（VMA padding 半回移兼容）"
   fi
 }
 
@@ -737,17 +745,18 @@ fix_task_mmu_show_pad() {
   fi
 }
 
+# mmap.c 的 vm_flags_clear 半回移修复对所有内核统一按内容检测（函数内部自带
+# 守卫，helper 齐备或无调用时为空操作），覆盖各 android 版本 2024-11 起
+# 持续更新的 deprecated 分支
+fix_missing_vm_flags_clear
+
 # Android 12 - 5.10 修复
 if [[ "$ANDROID_VERSION" == "android12" && "$KERNEL_VERSION" == "5.10" ]]; then
-  # 修复 2024-11 分支: mmap.c 调用了 vm_flags_clear()，但同分支 mm.h 未提供 helper
-  fix_missing_vm_flags_clear
   fix_task_mmu_show_pad 209
 fi
 
 # Android 13 - 5.15 修复
-  if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then
-  # 修复 2024-11 分支: mmap.c 调用了 vm_flags_clear()，但同分支 mm.h 未提供 helper
-  fix_missing_vm_flags_clear
+if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then
   fix_task_mmu_show_pad 148 "2024-05"
 fi
 
