@@ -77,10 +77,6 @@ on:
         required: true
         type: boolean
         default: false
-      use_kpm:
-        required: true
-        type: string
-        default: "disabled (关闭)"
       use_rekernel:
         required: false
         type: boolean
@@ -145,7 +141,6 @@ jobs:
           echo "ZRAM 压缩     : ${{ inputs.use_zram }}"
           echo "BBG 补丁      : ${{ inputs.use_bbg }}"
           echo "网络增强      : ${{ inputs.use_net_enhance }}"
-          echo "KPM 功能      : ${{ inputs.use_kpm }}"
           echo "Re-Kernel     : ${{ inputs.use_rekernel }}"
           echo "CVE-2026-43499: ${{ inputs.cve_2026_43499_patch }}"
           echo "Droidspaces   : ${{ inputs.droidspaces }}"
@@ -1119,13 +1114,12 @@ jobs:
               ;;
           esac
           # 前置检查：所有补丁资源必须存在，缺失时按兼容跳过策略处理，避免修改到一半再失败
-          # 版本补丁来源：本仓库自带 zram_patch/<ver>/ 优先，SukiSU_patch 兜底
+          # 版本补丁来源：SukiSU_patch/other/zram/zram_patch/<ver>
           pick_zram_patch() {
             local name="$1"
-            if [ -f "$ZZH_PATCHES/zram_patch/${{ inputs.kernel_version }}/$name" ]; then
-              echo "$ZZH_PATCHES/zram_patch/${{ inputs.kernel_version }}/$name"
-            elif [ -f "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/$name" ]; then
-              echo "$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/$name"
+            local path="$SUKISU_PATCHES/other/zram/zram_patch/${{ inputs.kernel_version }}/$name"
+            if [ -f "$path" ]; then
+              echo "$path"
             else
               echo ""
             fi
@@ -1139,8 +1133,8 @@ jobs:
           [ -d "$ZZH_PATCHES/zram/include/linux" ] || MISSING="$MISSING zram/include/linux"
           [ -d "$SUKISU_PATCHES/other/zram/lz4k" ] || MISSING="$MISSING SukiSU_patch/other/zram/lz4k"
           [ -d "$SUKISU_PATCHES/other/zram/lz4k_oplus" ] || MISSING="$MISSING SukiSU_patch/other/zram/lz4k_oplus"
-          [ -n "$LZ4KD_PATCH" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4kd.patch"
-          [ -n "$LZ4K_OPLUS_PATCH" ] || MISSING="$MISSING zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch"
+          [ -n "$LZ4KD_PATCH" ] || MISSING="$MISSING SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch"
+          [ -n "$LZ4K_OPLUS_PATCH" ] || MISSING="$MISSING SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch"
           if [ -n "$MISSING" ]; then
             if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
               echo "::warning title=ZRAM 已跳过::缺少 ZRAM 补丁资源:$MISSING，已跳过 ZRAM 功能"
@@ -1551,32 +1545,6 @@ jobs:
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%"' >> "$DEFCONFIG"
           fi
 
-          if [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "BakaSU" ]; then
-            if [[ "${{ inputs.use_kpm }}" == enabled* ]] || [[ "${{ inputs.use_kpm }}" == patched* ]]; then
-              if grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
-                echo "CONFIG_KPM=y" >> "$DEFCONFIG"
-              elif [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-                echo "::warning title=KPM 已跳过::当前 KernelSU 代码未声明 CONFIG_KPM，已跳过 KPM 功能"
-                if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                  echo "" >> "$GITHUB_STEP_SUMMARY"
-                  echo "> ⏭️ **KPM** 已自动跳过：当前 KernelSU 代码未声明 CONFIG_KPM（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-                fi
-                echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-              else
-                echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
-                exit 1
-              fi
-            fi
-          elif [ "${{ inputs.ksu_variant }}" == "FinaSU" ]; then
-            if [[ "${{ inputs.use_kpm }}" == enabled* ]] || [[ "${{ inputs.use_kpm }}" == patched* ]]; then
-              echo "::warning title=KPM 不适用::FinaSU 不支持 KPM，已忽略该选项继续构建"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **KPM** 已忽略：FinaSU 变体不支持 KPM（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-            fi
-          fi
 
           # FinaSU + SUSFS：选择 SUSFS Inline hook 后端；匹配的 50_add 补丁
           # 提供直接 ksu_handle_* 调用点，FinaSU Kbuild 会在编译期校验。
@@ -1834,78 +1802,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
           compression-level: 9
-
-      - name: 应用 KPM 补丁（构建期修补 Image）
-        if: startsWith(inputs.use_kpm, 'patched') && (inputs.ksu_variant == 'SukiSU' || inputs.ksu_variant == 'BakaSU')
-        run: |
-          set -e
-          if [ "${{ inputs.android_version }}" == "android12" ] || [ "${{ inputs.android_version }}" == "android13" ]; then
-            TARGET_PATH="$KERNEL_ROOT/out/${{ inputs.android_version }}-${{ inputs.kernel_version }}/dist"
-          else
-            TARGET_PATH="$KERNEL_ROOT/bazel-bin/common/kernel_aarch64"
-          fi
-          echo "KPM 补丁目标目录: $TARGET_PATH"
-          if [ ! -f "$TARGET_PATH/Image" ]; then
-            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-              echo "::error::未找到 $TARGET_PATH/Image，无法应用 KPM 补丁"
-              exit 1
-            fi
-            echo "::warning title=KPM 已跳过::未找到 $TARGET_PATH/Image，已跳过 KPM 构建期修补，使用未修补 Image"
-            echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-            exit 0
-          fi
-
-          cd "$TARGET_PATH"
-          # patch_linux 为内置 kpimg 的 kptools：无参数运行时默认读取 ./Image 并输出 ./oImage
-          if ! cp -f "$SUKISU_PATCHES/kpm/patch_linux" ./patch; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=KPM 已跳过::未找到 KPM 修补工具 $SUKISU_PATCHES/kpm/patch_linux，已跳过 KPM 构建期修补，使用未修补 Image"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **KPM（构建期修补）** 已自动跳过：未找到 KPM 修补工具 $SUKISU_PATCHES/kpm/patch_linux（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            echo "::error::未找到 KPM 修补工具 $SUKISU_PATCHES/kpm/patch_linux"
-            exit 1
-          fi
-          chmod 755 ./patch
-          if ! ./patch; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=KPM 已跳过::patch_linux 执行失败（可能不适配当前内核版本），已跳过 KPM 构建期修补，使用未修补 Image"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **KPM（构建期修补）** 已自动跳过：patch_linux 执行失败（可能不适配当前内核版本）（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            echo "::error::KPM 修补工具执行失败"
-            exit 1
-          fi
-          if [ ! -f ./oImage ]; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=KPM 已跳过::KPM 补丁未生成 oImage（patch_linux 可能不适配当前内核版本），已跳过 KPM 构建期修补，使用未修补 Image"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **KPM（构建期修补）** 已自动跳过：KPM 补丁未生成 oImage（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
-            echo "::error::KPM 补丁未生成 oImage，patch_linux 可能不适配当前内核版本"
-            exit 1
-          fi
-          mv -f ./oImage ./Image
-          echo "已用 kptools 在构建期完成 KPM 修补"
-
-          # 用修补后的 Image 重新生成 lz4，保证 boot-lz4 变体同样支持 KPM
-          if [ -f ./Image.lz4 ]; then
-            lz4 -f -9 --content-size ./Image ./Image.lz4
-            echo "已用修补后的 Image 重新生成 Image.lz4"
-          fi
-          echo "刷入 AnyKernel3 或任意 boot 镜像时无需再打 KPM 补丁"
 
       - name: 准备 Boot 镜像
         run: |

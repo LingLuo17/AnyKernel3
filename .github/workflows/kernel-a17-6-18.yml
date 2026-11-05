@@ -33,15 +33,6 @@ on:
         required: false
         type: string
         default: ""
-      use_kpm:
-        description: "KPM 功能（仅SukiSU支持）"
-        required: true
-        type: choice
-        default: "disabled (关闭)"
-        options:
-          - "disabled (关闭)"
-          - "enabled (开启)"
-          - "patched (开启并修补)"
       droidspaces:
         description: "Droidspaces 容器支持"
         required: false
@@ -119,9 +110,6 @@ on:
         required: true
         type: boolean
         default: false
-      use_kpm:
-        required: true
-        type: string
       use_rekernel:
         required: false
         type: boolean
@@ -209,7 +197,6 @@ jobs:
       use_zram: false
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
-      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel || false }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: false
