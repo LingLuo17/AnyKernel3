@@ -94,7 +94,7 @@ on:
 
       # ==================== 功能开关 ====================
       use_zram:
-        description: "启用 ZRAM 压缩算法"
+        description: "启用 ZRAM 压缩算法（仅 5.10~6.6，6.12/6.18 不支持）"
         type: boolean
         default: false
       use_bbg:
@@ -122,7 +122,7 @@ on:
       skip_incompatible:
         description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
         type: boolean
-        default: false
+        default: true
 
       # ==================== 构建版本选择 ====================
       build_a12_5_10:
@@ -355,7 +355,6 @@ jobs:
       ksu_cert_hash: ${{ needs.get-manager.outputs.managerCertHash }}
       version: ${{ inputs.version }}
       build_time: ${{ inputs.build_time || '' }}
-      use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
       use_kpm: ${{ inputs.use_kpm }}
@@ -383,7 +382,6 @@ jobs:
       ksu_cert_hash: ${{ needs.get-manager.outputs.managerCertHash }}
       version: ${{ inputs.version }}
       build_time: ${{ inputs.build_time || '' }}
-      use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
       use_kpm: ${{ inputs.use_kpm }}

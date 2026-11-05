@@ -113,7 +113,7 @@ on:
         description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build-kernel:
@@ -280,17 +280,33 @@ jobs:
           rm -rf AnyKernel3/.git
 
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
-          # 未适配的版本（如 android17-6.18 上游没有 SUSFS 分支）只跳过 SUSFS 克隆
+          # 上游没有对应 SUSFS 分支时自动跳过 SUSFS，避免中断构建
+          susfs_branch_missing() {
+            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
+              echo "::error::上游没有 SUSFS 分支 $1"
+              exit 1
+            fi
+            echo "::warning title=SUSFS 已跳过::上游没有 SUSFS 分支 $1，已跳过 SUSFS 功能"
+            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "> ⏭️ **SUSFS** 已自动跳过：上游没有 $1 分支（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "SUSFS_SKIPPED=true" >> "$GITHUB_ENV"
+            rm -rf susfs4ksu
+            mkdir -p susfs4ksu
+          }
           if [ "${{ inputs.enable_susfs }}" != "true" ]; then
             echo "SUSFS 已禁用，跳过 SUSFS 仓库克隆"
             mkdir -p susfs4ksu
           elif [ "${{ inputs.ksu_variant }}" == "SukiSU" ]; then
             if ! git clone https://github.com/ShirkNeko/susfs4ksu.git -b "$SUSFS_BRANCH" 2>/dev/null; then
               echo "ShirkNeko 仓库未找到分支 $SUSFS_BRANCH，回退到 simonpunk 原版..."
-              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
+                || susfs_branch_missing "$SUSFS_BRANCH"
             fi
           else
-            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
+              || susfs_branch_missing "$SUSFS_BRANCH"
           fi
 
           CONFIG_FILE="config/config"
@@ -701,7 +717,7 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/scripts/sukisu_compat/apply.sh" KernelSU
 
       - name: 应用 SUSFS 补丁
-        if: inputs.enable_susfs
+        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
         working-directory: ${{ env.KERNEL_ROOT }}
         env:
           ANDROID_VERSION: ${{ inputs.android_version }}
@@ -1067,7 +1083,7 @@ jobs:
           echo "=== NTSync 补丁与配置注入完成 ==="
 
       - name: 应用 Unicode 绕过修复
-        if: inputs.enable_susfs
+        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           if [ "${{ inputs.kernel_version }}" = "5.10" ] || [ "${{ inputs.kernel_version }}" = "5.15" ]; then
@@ -1090,9 +1106,20 @@ jobs:
         if: inputs.use_zram
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
+          # 6.12 及以上暂无上游 ZRAM 补丁源，直接跳过，避免被当成资源缺失中断构建
+          case "${{ inputs.kernel_version }}" in
+            6.12|6.18)
+              echo "::warning title=ZRAM 已跳过::内核 ${{ inputs.kernel_version }} 暂无 ZRAM 补丁源，已跳过 ZRAM 功能"
+              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "> ⏭️ **ZRAM / LZ4KD** 已跳过：内核 ${{ inputs.kernel_version }} 暂无 ZRAM 补丁源（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+              fi
+              echo "ZRAM_SKIPPED=true" >> "$GITHUB_ENV"
+              exit 0
+              ;;
+          esac
           # 前置检查：所有补丁资源必须存在，缺失时按兼容跳过策略处理，避免修改到一半再失败
-          # 版本补丁来源：本仓库自带 zram_patch/<ver>/ 优先，SukiSU_patch 兜底；
-          # 上游尚未覆盖的版本（如 6.12）由本仓库补齐
+          # 版本补丁来源：本仓库自带 zram_patch/<ver>/ 优先，SukiSU_patch 兜底
           pick_zram_patch() {
             local name="$1"
             if [ -f "$ZZH_PATCHES/zram_patch/${{ inputs.kernel_version }}/$name" ]; then
@@ -1178,8 +1205,12 @@ jobs:
             local file="$1"
             local line="$2"
             if [ ! -f "$file" ]; then
-              echo "::error::文件不存在: $file"
-              exit 1
+              if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
+                echo "::error::文件不存在: $file"
+                exit 1
+              fi
+              echo "::warning title=min_kdp 已跳过::文件不存在: $file"
+              return 0
             fi
             if ! grep -qF "$line" "$file"; then
               echo "$line" >> "$file"
@@ -1198,8 +1229,12 @@ jobs:
           ensure_line_once "$GALAXY_SYMBOL_LIST" "kdp_usecount_inc"
 
           if [ ! -f "$MIN_KDP_PATCH" ]; then
-            echo "::error::补丁不存在: $MIN_KDP_PATCH"
-            exit 1
+            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
+              echo "::error::补丁不存在: $MIN_KDP_PATCH"
+              exit 1
+            fi
+            echo "::warning title=min_kdp 已跳过::补丁不存在: $MIN_KDP_PATCH"
+            exit 0
           fi
           if patch -p1 --dry-run < "$MIN_KDP_PATCH" >/dev/null 2>&1; then
             patch -p1 --no-backup-if-mismatch < "$MIN_KDP_PATCH"
@@ -1208,8 +1243,12 @@ jobs:
           fi
 
           if [ ! -f "$MIN_KDP_SRC" ]; then
-            echo "::error::文件不存在: $MIN_KDP_SRC"
-            exit 1
+            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
+              echo "::error::文件不存在: $MIN_KDP_SRC"
+              exit 1
+            fi
+            echo "::warning title=min_kdp 已跳过::文件不存在: $MIN_KDP_SRC"
+            exit 0
           fi
           cp "$MIN_KDP_SRC" "$MIN_KDP_DST"
           ensure_line_once "$DRIVERS_MAKEFILE" "obj-y += min_kdp.o"
@@ -1573,7 +1612,7 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
       - name: 添加 SUSFS 配置
-        if: inputs.enable_susfs
+        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
           CONFIG_KSU_SUSFS=y
@@ -1807,8 +1846,13 @@ jobs:
           fi
           echo "KPM 补丁目标目录: $TARGET_PATH"
           if [ ! -f "$TARGET_PATH/Image" ]; then
-            echo "::error::未找到 $TARGET_PATH/Image，无法应用 KPM 补丁"
-            exit 1
+            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
+              echo "::error::未找到 $TARGET_PATH/Image，无法应用 KPM 补丁"
+              exit 1
+            fi
+            echo "::warning title=KPM 已跳过::未找到 $TARGET_PATH/Image，已跳过 KPM 构建期修补，使用未修补 Image"
+            echo "KPM_SKIPPED=true" >> "$GITHUB_ENV"
+            exit 0
           fi
 
           cd "$TARGET_PATH"

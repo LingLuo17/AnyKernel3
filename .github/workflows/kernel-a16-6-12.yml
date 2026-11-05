@@ -63,11 +63,6 @@ on:
         required: false
         type: boolean
         default: false
-      use_zram:
-        description: "启用 ZRAM 压缩算法"
-        required: true
-        type: boolean
-        default: false
       use_bbg:
         description: "启用 BBG 基带保护"
         required: true
@@ -102,7 +97,7 @@ on:
         description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
         required: false
         type: boolean
-        default: false
+        default: true
   workflow_call:
     inputs:
       kernelsu_variant:
@@ -120,9 +115,6 @@ on:
         required: false
         type: string
         default: ""
-      use_zram:
-        required: true
-        type: boolean
       use_bbg:
         required: true
         type: boolean
@@ -162,7 +154,7 @@ on:
       skip_incompatible:
         required: false
         type: boolean
-        default: false
+        default: true
       called_from_main:
         description: "是否从 main.yml 调用（内部使用）"
         required: false
@@ -228,7 +220,7 @@ jobs:
       ksu_cert_hash: ${{ inputs.ksu_cert_hash || needs.get-ksu-manager.outputs.managerCertHash }}
       version: ${{ inputs.version || '' }}
       build_time: ${{ inputs.build_time || '' }}
-      use_zram: ${{ inputs.use_zram || false }}
+      use_zram: false
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
       use_kpm: ${{ inputs.use_kpm }}

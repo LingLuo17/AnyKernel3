@@ -356,7 +356,7 @@ on:
 
       # ==================== 功能开关 ====================
       use_zram:
-        description: "启用 ZRAM 压缩算法"
+        description: "启用 ZRAM 压缩算法（仅 5.10~6.6，6.12/6.18 不支持）"
         required: true
         type: boolean
         default: false
@@ -394,7 +394,7 @@ on:
         description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
         required: false
         type: boolean
-        default: false
+        default: true
 
 jobs:
   resolve-version:
