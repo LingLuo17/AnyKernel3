@@ -382,6 +382,25 @@ jobs:
             echo "::error::repo sync 连续 3 次尝试均失败（上游连接停滞或不可用）"
             exit 1
           fi
+
+          # 完整性守卫：repo sync 断点续传偶发留下检出不完整的项目（如 clang 工具链
+          # 项目缺少 kleaf/BUILD.bazel），bazel 加载阶段会报
+          # "Every .bzl file must have a corresponding package" 而失败；检测到时
+          # 强制重新同步该项目
+          for CHECK_PATH in \
+            prebuilts/clang/host/linux-x86/kleaf/clang_toolchain_repository.bzl \
+            build/kernel/kleaf/common_kernels.bzl; do
+            DIR_PATH="${CHECK_PATH%/*}"
+            if [ -e "$DIR_PATH" ] && [ ! -f "$CHECK_PATH" ]; then
+              PROJECT_DIR="${DIR_PATH%/kleaf}"
+              if [ -d ".repo/projects" ]; then
+                echo "::warning title=repo sync 完整性守卫::$DIR_PATH 存在但缺少 $(basename "$CHECK_PATH")，重新同步 $PROJECT_DIR"
+                timeout --kill-after=30 20m $REPO sync -c --force-sync --fail-fast "$PROJECT_DIR" \
+                  || echo "::warning title=repo sync 完整性守卫::重同步 $PROJECT_DIR 失败，继续构建"
+              fi
+            fi
+          done
+
           echo "REMOTE_BRANCH=$REMOTE_BRANCH" >> $GITHUB_ENV
 
       - name: 提取实际子版本号
@@ -1452,9 +1471,20 @@ jobs:
             set_config "CONFIG_$cfg" y
           done
 
-          # 6.12 及更新版本的 NETFS 内置化后需移除 modules.bzl 的模块条目，否则打包失败
-          if { [ "$AVER" = "android16" ] || [ "$AVER" = "android17" ]; } && grep -q '"fs/netfs/netfs.ko",' modules.bzl 2>/dev/null; then
-            sed -i '/"fs\/netfs\/netfs\.ko",/d' modules.bzl
+          # CIFS=y 会把其 Kconfig select 的 NETFS_SUPPORT / CRYPTO_LIB_ARC4 一并提升
+          # 为内建，而 GKI 模块清单仍期待对应 .ko，dist 阶段产物校验将失败，需删除
+          # 对应条目。清单位置随版本变化：6.12 及更早版本在根 modules.bzl，6.18 起
+          # 迁移到 bazel/modules_private.bzl（根 modules.bzl 仅为转发 shim）。
+          # libarc4 仅在 CIFS Kconfig 声明 select 的版本（6.18+）需要处理，更早版本
+          # 由 CONFIG_PPP_MPPE=m 维持为模块，删除反而破坏其依赖。
+          if grep -q '^CONFIG_CIFS=y$' "$DEFCONFIG"; then
+            for MODULE_LIST in modules.bzl bazel/modules_private.bzl; do
+              [ -f "$MODULE_LIST" ] || continue
+              sed -i '/"fs\/netfs\/netfs\.ko",/d' "$MODULE_LIST"
+              if grep -q 'select CRYPTO_LIB_ARC4' fs/smb/client/Kconfig 2>/dev/null || grep -q 'select CRYPTO_LIB_ARC4' fs/cifs/Kconfig 2>/dev/null; then
+                sed -i '/"lib\/crypto\/libarc4\.ko",/d' "$MODULE_LIST"
+              fi
+            done
           fi
 
           # 写后校验：关键符号必须落盘
