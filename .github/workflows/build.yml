@@ -1322,6 +1322,11 @@ jobs:
           echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' common/security/Kconfig
 
+          # BBG blkdev_helper.c 只 include <linux/blkdev.h>，但 blkdev_get_no_open/
+          # blkdev_put_no_open 在 Linux 6.9+ 已移入私有头 block/blk.h（6.15+ 为双参
+          # 形态），导致 android17-6.18 编译报隐式声明；按头文件实际内容打兼容补丁
+          bash "$GITHUB_WORKSPACE/scripts/bbg_fixes/fix_blkdev_helper.sh" common
+
       - name: 应用网络增强（BBRv3 / IPSet / Qdisc / CIFS）
         if: inputs.use_net_enhance
         working-directory: ${{ env.KERNEL_ROOT }}/common
