@@ -28,10 +28,13 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 | Android | Kernel Version | Manual Workflow |
 |:---:|:---:|:---:|
 | 12 | 5.10 | `kernel-a12-5-10.yml` |
+| 13 | 5.10 | `kernel-a13-5-10.yml` |
 | 13 | 5.15 | `kernel-a13-5-15.yml` |
+| 14 | 5.15 | `kernel-a14-5-15.yml` |
 | 14 | 6.1 | `kernel-a14-6-1.yml` |
 | 15 | 6.6 | `kernel-a15-6-6.yml` |
 | 16 | 6.12 | `kernel-a16-6-12.yml` |
+| 17 | 6.18 | `kernel-a17-6-18.yml` |
 | Custom | Any | `kernel-custom.yml` |
 
 ## ✨ Features
@@ -148,10 +151,13 @@ A commit is a hash string representing the state of a repository at a certain po
 | Android | 内核版本 | 手动触发工作流 |
 |:---:|:---:|:---:|
 | 12 | 5.10 | `kernel-a12-5-10.yml` |
+| 13 | 5.10 | `kernel-a13-5-10.yml` |
 | 13 | 5.15 | `kernel-a13-5-15.yml` |
+| 14 | 5.15 | `kernel-a14-5-15.yml` |
 | 14 | 6.1 | `kernel-a14-6-1.yml` |
 | 15 | 6.6 | `kernel-a15-6-6.yml` |
 | 16 | 6.12 | `kernel-a16-6-12.yml` |
+| 17 | 6.18 | `kernel-a17-6-18.yml` |
 | 自定义 | 任意 | `kernel-custom.yml` |
 
 ## ✨ 功能特性

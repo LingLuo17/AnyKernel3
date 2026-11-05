@@ -18,10 +18,13 @@ on:
           - "6.1"
           - "6.6"
           - "6.12"
+          - "6.18"
         default: "5.10"
-      # 内核子版本：每个内核版本独立下拉，仅对应版本生效，选后自动匹配安全补丁级别
-      sub_level_5_10:
-        description: "5.10 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 5.10 时生效)"
+      # 内核子版本：每个 Android + 内核组合独立下拉，仅对应组合生效，选后自动匹配安全补丁级别
+      # 同一内核对应多个 Android 版本时（5.10 -> 12/13、5.15 -> 13/14），
+      # 选中对应的非 auto 子版本即按该 Android 版本构建，全为 auto 时用默认映射
+      sub_level_a12_5_10:
+        description: "Android 12-5.10 子版本 (选择后自动匹配安全补丁级别；仅 Android 12 + 内核 5.10 时生效)"
         required: false
         type: choice
         default: "auto (自动匹配最新安全补丁级别)"
@@ -64,8 +67,58 @@ on:
           - "240 (2025-09)"
           - "246 (2025-12)"
           - "lts (5.10.272)"
-      sub_level_5_15:
-        description: "5.15 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 5.15 时生效)"
+
+      sub_level_a13_5_10:
+        description: "Android 13-5.10 子版本 (选择后自动匹配安全补丁级别；仅 Android 13 + 内核 5.10 时生效)"
+        required: false
+        type: choice
+        default: "auto (自动匹配最新安全补丁级别)"
+        options:
+          - "auto (自动匹配最新安全补丁级别)"
+          - "107 (2022-04)"
+          - "107 (2022-05)"
+          - "107 (2022-06)"
+          - "107 (2022-07)"
+          - "107 (2022-08)"
+          - "107 (2022-09)"
+          - "107 (2022-10)"
+          - "107 (2022-11)"
+          - "149 (2022-12)"
+          - "149 (2023-01)"
+          - "157 (2023-02)"
+          - "157 (2023-03)"
+          - "168 (2023-04)"
+          - "168 (2023-05)"
+          - "177 (2023-06)"
+          - "177 (2023-07)"
+          - "186 (2023-08)"
+          - "186 (2023-09)"
+          - "189 (2023-10)"
+          - "189 (2023-11)"
+          - "198 (2023-12)"
+          - "198 (2024-01)"
+          - "205 (2024-02)"
+          - "205 (2024-03)"
+          - "209 (2024-04)"
+          - "209 (2024-05)"
+          - "210 (2024-06)"
+          - "214 (2024-07)"
+          - "218 (2024-08)"
+          - "223 (2024-09)"
+          - "223 (2024-11)"
+          - "228 (2025-01)"
+          - "234 (2025-03)"
+          - "236 (2025-05)"
+          - "238 (2025-07)"
+          - "243 (2025-10)"
+          - "246 (2026-01)"
+          - "252 (2026-04)"
+          - "257 (2026-07)"
+          - "269 (2026-10)"
+          - "lts (5.10.270)"
+
+      sub_level_a13_5_15:
+        description: "Android 13-5.15 子版本 (选择后自动匹配安全补丁级别；仅 Android 13 + 内核 5.15 时生效)"
         required: false
         type: choice
         default: "auto (自动匹配最新安全补丁级别)"
@@ -107,8 +160,41 @@ on:
           - "189 (2025-09)"
           - "194 (2025-12)"
           - "lts (5.15.223)"
-      sub_level_6_1:
-        description: "6.1 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.1 时生效)"
+
+      sub_level_a14_5_15:
+        description: "Android 14-5.15 子版本 (选择后自动匹配安全补丁级别；仅 Android 14 + 内核 5.15 时生效)"
+        required: false
+        type: choice
+        default: "auto (自动匹配最新安全补丁级别)"
+        options:
+          - "auto (自动匹配最新安全补丁级别)"
+          - "110 (2023-06)"
+          - "110 (2023-08)"
+          - "110 (2023-09)"
+          - "131 (2023-11)"
+          - "137 (2024-01)"
+          - "144 (2024-02)"
+          - "144 (2024-03)"
+          - "148 (2024-04)"
+          - "148 (2024-05)"
+          - "149 (2024-06)"
+          - "153 (2024-07)"
+          - "158 (2024-08)"
+          - "164 (2024-09)"
+          - "167 (2024-11)"
+          - "170 (2025-01)"
+          - "178 (2025-03)"
+          - "180 (2025-05)"
+          - "185 (2025-07)"
+          - "192 (2025-10)"
+          - "196 (2026-01)"
+          - "202 (2026-04)"
+          - "208 (2026-07)"
+          - "216 (2026-10)"
+          - "lts (5.15.220)"
+
+      sub_level_a14_6_1:
+        description: "Android 14-6.1 子版本 (选择后自动匹配安全补丁级别；仅 Android 14 + 内核 6.1 时生效)"
         required: false
         type: choice
         default: "auto (自动匹配最新安全补丁级别)"
@@ -147,8 +233,9 @@ on:
           - "172 (2026-06)"
           - "176 (2026-09)"
           - "lts (6.1.182)"
-      sub_level_6_6:
-        description: "6.6 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.6 时生效)"
+
+      sub_level_a15_6_6:
+        description: "Android 15-6.6 子版本 (选择后自动匹配安全补丁级别；仅 Android 15 + 内核 6.6 时生效)"
         required: false
         type: choice
         default: "auto (自动匹配最新安全补丁级别)"
@@ -172,8 +259,9 @@ on:
           - "139 (2026-07)"
           - "143 (2026-10)"
           - "lts (6.6.144)"
-      sub_level_6_12:
-        description: "6.12 子版本 (选择后自动匹配安全补丁级别；仅内核版本为 6.12 时生效)"
+
+      sub_level_a16_6_12:
+        description: "Android 16-6.12 子版本 (选择后自动匹配安全补丁级别；仅 Android 16 + 内核 6.12 时生效)"
         required: false
         type: choice
         default: "auto (自动匹配最新安全补丁级别)"
@@ -188,6 +276,18 @@ on:
           - "81 (2026-06)"
           - "92 (2026-09)"
           - "lts (6.12.97)"
+
+      sub_level_a17_6_18:
+        description: "Android 17-6.18 子版本 (选择后自动匹配安全补丁级别；仅 Android 17 + 内核 6.18 时生效)"
+        required: false
+        type: choice
+        default: "auto (自动匹配最新安全补丁级别)"
+        options:
+          - "auto (自动匹配最新安全补丁级别)"
+          - "20 (2026-04)"
+          - "21 (2026-06)"
+          - "32 (2026-09)"
+          - "lts (6.18.33)"
 
       # ==================== KernelSU 配置 ====================
       kernelsu_variant:
@@ -312,11 +412,14 @@ jobs:
         id: resolve
         env:
           KERNEL_VERSION: ${{ inputs.kernel_version }}
-          SUB_LEVEL_5_10: ${{ inputs.sub_level_5_10 }}
-          SUB_LEVEL_5_15: ${{ inputs.sub_level_5_15 }}
-          SUB_LEVEL_6_1: ${{ inputs.sub_level_6_1 }}
-          SUB_LEVEL_6_6: ${{ inputs.sub_level_6_6 }}
-          SUB_LEVEL_6_12: ${{ inputs.sub_level_6_12 }}
+          SUB_LEVEL_A12_5_10: ${{ inputs.sub_level_a12_5_10 }}
+          SUB_LEVEL_A13_5_10: ${{ inputs.sub_level_a13_5_10 }}
+          SUB_LEVEL_A13_5_15: ${{ inputs.sub_level_a13_5_15 }}
+          SUB_LEVEL_A14_5_15: ${{ inputs.sub_level_a14_5_15 }}
+          SUB_LEVEL_A14_6_1: ${{ inputs.sub_level_a14_6_1 }}
+          SUB_LEVEL_A15_6_6: ${{ inputs.sub_level_a15_6_6 }}
+          SUB_LEVEL_A16_6_12: ${{ inputs.sub_level_a16_6_12 }}
+          SUB_LEVEL_A17_6_18: ${{ inputs.sub_level_a17_6_18 }}
         run: |
           python3 <<'PY'
           import json
@@ -331,11 +434,45 @@ jobs:
               "6.1": "android14",
               "6.6": "android15",
               "6.12": "android16",
+              "6.18": "android17",
           }
-          android_version = android_map.get(kernel_version)
-          if android_version is None:
+          # 同一内核版本可能有多个 Android 版本（android13-5.10、android14-5.15 等），
+          # 由对应组合的子版本下拉决定：选中非 auto 项即按该 Android 版本构建，
+          # 全部保持 auto 时使用默认映射。
+          android_candidates = {
+              "5.10": ["android12", "android13"],
+              "5.15": ["android13", "android14"],
+              "6.1": ["android14"],
+              "6.6": ["android15"],
+              "6.12": ["android16"],
+              "6.18": ["android17"],
+          }
+          candidates = android_candidates.get(kernel_version)
+          if not candidates:
               print(f"::error::未适配的内核版本: {kernel_version}")
               sys.exit(1)
+
+          def sub_level_key(android):
+              return "SUB_LEVEL_A%s_%s" % (
+                  android.replace("android", ""), kernel_version.replace(".", "_"))
+
+          selected = []
+          for android in candidates:
+              value = os.environ.get(sub_level_key(android), "").strip()
+              if value and not value.startswith("auto"):
+                  selected.append((android, value))
+
+          if len(selected) > 1:
+              print("::warning::同时选择了多个 Android 版本的子版本: "
+                    + ", ".join("%s=%s" % item for item in selected)
+                    + f"，使用 {selected[0][0]}")
+          if selected:
+              android_version, sub_level_input = selected[0]
+          else:
+              android_version = android_map[kernel_version]
+              sub_level_input = os.environ.get(sub_level_key(android_version), "").strip()
+              if not sub_level_input:
+                  print(f"::warning::{sub_level_key(android_version)} 未设置，回退到 auto")
 
           data_path = Path("data") / android_version / f"{kernel_version}.json"
 
@@ -346,9 +483,7 @@ jobs:
           with data_path.open("r", encoding="utf-8") as f:
               data = json.load(f)
 
-          # 按内核版本取对应的子版本下拉输入
-          sub_level_input = os.environ.get(f"SUB_LEVEL_{kernel_version.replace('.', '_')}", "").strip()
-
+          # 按子版本反查安全补丁级别（sub_level_input 已按上面的 Android 候选确定）
           if sub_level_input and not sub_level_input.startswith("auto"):
               # 按子版本反查安全补丁级别，如 "138 (2025-06)" -> 2025-06
               token = sub_level_input.split()[0]
@@ -365,13 +500,23 @@ jobs:
                       if entry.get("kernel") == f"{kernel_version}.{token}"
                   ]
                   if not matches:
-                      print(f"::error::未找到 {android_version} / {kernel_version}.{token} 对应的版本数据")
-                      sys.exit(1)
-                  # entries 按日期升序，取该子版本对应的最新安全补丁级别
-                  latest = matches[-1]
-                  kernel_full = latest.get("kernel", "")
-                  patch_level = latest.get("date", "")
-                  sub_level = token
+                      # 同一内核版本跨多个 Android 版本时，下拉列表可能不含当前组合的
+                      # 子版本；回退到该组合的最新月度条目，避免硬失败
+                      entries = data.get("entries", [])
+                      if not entries:
+                          print(f"::error::{android_version} / {kernel_version} 没有可用的版本数据")
+                          sys.exit(1)
+                      latest = entries[-1]
+                      kernel_full = latest.get("kernel", "")
+                      patch_level = latest.get("date", "")
+                      sub_level = kernel_full.rsplit(".", 1)[-1]
+                      print(f"::warning::{android_version} / {kernel_version}.{token} 无对应数据，回退到 {kernel_full} ({patch_level})")
+                  else:
+                      # entries 按日期升序，取该子版本对应的最新安全补丁级别
+                      latest = matches[-1]
+                      kernel_full = latest.get("kernel", "")
+                      patch_level = latest.get("date", "")
+                      sub_level = token
               else:
                   print(f"::error::无法识别的子版本: {sub_level_input}")
                   sys.exit(1)

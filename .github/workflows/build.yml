@@ -280,7 +280,11 @@ jobs:
           rm -rf AnyKernel3/.git
 
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
-          if [ "${{ inputs.ksu_variant }}" == "SukiSU" ]; then
+          # 未适配的版本（如 android17-6.18 上游没有 SUSFS 分支）只跳过 SUSFS 克隆
+          if [ "${{ inputs.enable_susfs }}" != "true" ]; then
+            echo "SUSFS 已禁用，跳过 SUSFS 仓库克隆"
+            mkdir -p susfs4ksu
+          elif [ "${{ inputs.ksu_variant }}" == "SukiSU" ]; then
             if ! git clone https://github.com/ShirkNeko/susfs4ksu.git -b "$SUSFS_BRANCH" 2>/dev/null; then
               echo "ShirkNeko 仓库未找到分支 $SUSFS_BRANCH，回退到 simonpunk 原版..."
               git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
@@ -290,7 +294,7 @@ jobs:
           fi
 
           CONFIG_FILE="config/config"
-          if [ -f "$CONFIG_FILE" ]; then
+          if [ -f "$CONFIG_FILE" ] && [ -d susfs4ksu/.git ]; then
             CUSTOM_ENABLED=$(grep "^custom=" "$CONFIG_FILE" | cut -d'=' -f2)
             if [ "$CUSTOM_ENABLED" == "true" ]; then
               CUSTOM_COMMIT=$(grep "^${SUSFS_BRANCH}=" "$CONFIG_FILE" | cut -d'=' -f2)
@@ -303,7 +307,11 @@ jobs:
             fi
           fi
 
-          SUSFS_LATEST_COMMIT_DATE=$(git -C susfs4ksu log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
+          if [ -d susfs4ksu/.git ]; then
+            SUSFS_LATEST_COMMIT_DATE=$(git -C susfs4ksu log -1 --date=format:'%Y-%m-%d %H:%M:%S %z' --format='%cd')
+          else
+            SUSFS_LATEST_COMMIT_DATE="未启用"
+          fi
           echo "SUSFS_LATEST_COMMIT_DATE=$SUSFS_LATEST_COMMIT_DATE" >> $GITHUB_ENV
           echo "SUSFS 仓库最新提交日期: $SUSFS_LATEST_COMMIT_DATE"
 
@@ -1237,7 +1245,7 @@ jobs:
             sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
           fi
 
-          if [ "${{ inputs.android_version }}" = "android14" ] || [ "${{ inputs.android_version }}" = "android15" ] || [ "${{ inputs.android_version }}" = "android16" ]; then
+          if [ "${{ inputs.android_version }}" = "android14" ] || [ "${{ inputs.android_version }}" = "android15" ] || [ "${{ inputs.android_version }}" = "android16" ] || [ "${{ inputs.android_version }}" = "android17" ]; then
             sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$KERNEL_ROOT/common/modules.bzl"
           fi
 
@@ -1410,8 +1418,8 @@ jobs:
             set_config "CONFIG_$cfg" y
           done
 
-          # 6.12 的 NETFS 内置化后需移除 modules.bzl 的模块条目，否则打包失败
-          if [ "$AVER" = "android16" ] && grep -q '"fs/netfs/netfs.ko",' modules.bzl 2>/dev/null; then
+          # 6.12 及更新版本的 NETFS 内置化后需移除 modules.bzl 的模块条目，否则打包失败
+          if { [ "$AVER" = "android16" ] || [ "$AVER" = "android17" ]; } && grep -q '"fs/netfs/netfs.ko",' modules.bzl 2>/dev/null; then
             sed -i '/"fs\/netfs\/netfs\.ko",/d' modules.bzl
           fi
 
@@ -1729,7 +1737,9 @@ jobs:
                   FRAG_FLAG="--defconfig_fragment=//common:arch/arm64/configs/ksu.fragment"
                 fi
                 LTO_FLAG="--lto=thin"
-                if [ "${{ inputs.kernel_version }}" = "6.12" ]; then
+                # 6.12 及更新的 GKI 在 bazel 下固定 none
+                KVER_NUM="${{ inputs.kernel_version }}"
+                if [ "$(printf '%s\n' "6.12" "$KVER_NUM" | sort -V | head -1)" = "6.12" ]; then
                   LTO_FLAG="--lto=none"
                 fi
                 tools/bazel build --disk_cache=/home/runner/.cache/bazel --config=fast $LTO_FLAG $FRAG_FLAG //common:kernel_aarch64_dist || exit 1
@@ -1916,7 +1926,7 @@ jobs:
           cp ./boot-lz4.img ../${{ inputs.android_version }}-${{ inputs.kernel_version }}.${NAME_SUBLEVEL}-${{ inputs.os_patch_level }}-boot-lz4.img
 
       - name: 构建 Boot 镜像 (Android 13+)
-        if: inputs.android_version == 'android13' || inputs.android_version == 'android14' || inputs.android_version == 'android15' || inputs.android_version == 'android16'
+        if: inputs.android_version == 'android13' || inputs.android_version == 'android14' || inputs.android_version == 'android15' || inputs.android_version == 'android16' || inputs.android_version == 'android17'
         working-directory: bootimgs
         run: |
           gzip -n -k -f -9 ./Image > ./Image.gz

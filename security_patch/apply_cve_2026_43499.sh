@@ -387,8 +387,8 @@ case "$kernel_version" in
     fallback_patch=""
     ;;
   *)
-    echo "ERROR: unsupported kernel version for CVE-2026-43499 patch: $kernel_version" >&2
-    exit 1
+    echo "SKIP: no CVE-2026-43499 patch for kernel $kernel_version, nothing to apply"
+    exit 0
     ;;
 esac
 

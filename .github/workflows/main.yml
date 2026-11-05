@@ -129,8 +129,16 @@ on:
         description: "Android 12 - 5.10"
         type: boolean
         default: false
+      build_a13_5_10:
+        description: "Android 13 - 5.10"
+        type: boolean
+        default: false
       build_a13_5_15:
         description: "Android 13 - 5.15"
+        type: boolean
+        default: false
+      build_a14_5_15:
+        description: "Android 14 - 5.15"
         type: boolean
         default: false
       build_a14_6_1:
@@ -143,6 +151,10 @@ on:
         default: false
       build_a16_6_12:
         description: "Android 16 - 6.12"
+        type: boolean
+        default: false
+      build_a17_6_18:
+        description: "Android 17 - 6.18（SUSFS 未适配，固定禁用）"
         type: boolean
         default: false
       build_all:
@@ -188,12 +200,68 @@ jobs:
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
+  # ==================== Android 13 - 5.10 构建 ====================
+  build-a13-5-10:
+    needs: [get-manager]
+    # 管理器拉取失败不阻塞构建（ksuCommit 为空则内核跟随 main HEAD）
+    if: ${{ !cancelled() && (inputs.build_a13_5_10 || inputs.build_all) }}
+    uses: ./.github/workflows/kernel-a13-5-10.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      build_channel: ${{ inputs.build_channel }}
+      ksu_commit: ${{ needs.get-manager.outputs.ksuCommit }}
+      ksu_cert_size: ${{ needs.get-manager.outputs.managerCertSize }}
+      ksu_cert_hash: ${{ needs.get-manager.outputs.managerCertHash }}
+      version: ${{ inputs.version }}
+      build_time: ${{ inputs.build_time || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel }}
+      cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      cancel_susfs: ${{ inputs.cancel_susfs }}
+      droidspaces: ${{ inputs.droidspaces }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      skip_incompatible: ${{ inputs.skip_incompatible || false }}
+      called_from_main: true
+
   # ==================== Android 13 - 5.15 构建 ====================
   build-a13-5-15:
     needs: [get-manager]
     # 管理器拉取失败不阻塞构建（ksuCommit 为空则内核跟随 main HEAD）
     if: ${{ !cancelled() && (inputs.build_a13_5_15 || inputs.build_all) }}
     uses: ./.github/workflows/kernel-a13-5-15.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      build_channel: ${{ inputs.build_channel }}
+      ksu_commit: ${{ needs.get-manager.outputs.ksuCommit }}
+      ksu_cert_size: ${{ needs.get-manager.outputs.managerCertSize }}
+      ksu_cert_hash: ${{ needs.get-manager.outputs.managerCertHash }}
+      version: ${{ inputs.version }}
+      build_time: ${{ inputs.build_time || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel }}
+      cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      cancel_susfs: ${{ inputs.cancel_susfs }}
+      droidspaces: ${{ inputs.droidspaces }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      skip_incompatible: ${{ inputs.skip_incompatible || false }}
+      called_from_main: true
+
+  # ==================== Android 14 - 5.15 构建 ====================
+  build-a14-5-15:
+    needs: [get-manager]
+    # 管理器拉取失败不阻塞构建（ksuCommit 为空则内核跟随 main HEAD）
+    if: ${{ !cancelled() && (inputs.build_a14_5_15 || inputs.build_all) }}
+    uses: ./.github/workflows/kernel-a14-5-15.yml
     secrets: inherit
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
@@ -300,6 +368,34 @@ jobs:
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
+  # ==================== Android 17 - 6.18 构建 ====================
+  build-a17-6-18:
+    needs: [get-manager]
+    # 管理器拉取失败不阻塞构建（ksuCommit 为空则内核跟随 main HEAD）
+    if: ${{ !cancelled() && (inputs.build_a17_6_18 || inputs.build_all) }}
+    uses: ./.github/workflows/kernel-a17-6-18.yml
+    secrets: inherit
+    with:
+      kernelsu_variant: ${{ inputs.kernelsu_variant }}
+      build_channel: ${{ inputs.build_channel }}
+      ksu_commit: ${{ needs.get-manager.outputs.ksuCommit }}
+      ksu_cert_size: ${{ needs.get-manager.outputs.managerCertSize }}
+      ksu_cert_hash: ${{ needs.get-manager.outputs.managerCertHash }}
+      version: ${{ inputs.version }}
+      build_time: ${{ inputs.build_time || '' }}
+      use_zram: ${{ inputs.use_zram }}
+      use_bbg: ${{ inputs.use_bbg }}
+      use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
+      use_rekernel: ${{ inputs.use_rekernel }}
+      cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
+      cancel_susfs: ${{ inputs.cancel_susfs }}
+      droidspaces: ${{ inputs.droidspaces }}
+      artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
+      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      skip_incompatible: ${{ inputs.skip_incompatible || false }}
+      called_from_main: true
+
   # ==================== 收集补丁冲突文件 ====================
   # 汇总所有构建任务中的 .rej 文件，方便调试补丁问题
   collect-rejects:
@@ -307,10 +403,13 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-a12-5-10
+      - build-a13-5-10
       - build-a13-5-15
+      - build-a14-5-15
       - build-a14-6-1
       - build-a15-6-6
       - build-a16-6-12
+      - build-a17-6-18
     steps:
       - name: 下载冲突文件
         uses: actions/download-artifact@v8
@@ -346,10 +445,13 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-a12-5-10
+      - build-a13-5-10
       - build-a13-5-15
+      - build-a14-5-15
       - build-a14-6-1
       - build-a15-6-6
       - build-a16-6-12
+      - build-a17-6-18
     steps:
       - name: 下载编译失败日志
         uses: actions/download-artifact@v8
@@ -430,10 +532,13 @@ jobs:
     needs:
       - get-manager
       - build-a12-5-10
+      - build-a13-5-10
       - build-a13-5-15
+      - build-a14-5-15
       - build-a14-6-1
       - build-a15-6-6
       - build-a16-6-12
+      - build-a17-6-18
 
     # ==================== 环境变量 ====================
     env:
@@ -516,10 +621,13 @@ jobs:
             fi
           }
           check_build "${{ inputs.build_a12_5_10 || inputs.build_all }}" "build-a12-5-10" "${{ needs.build-a12-5-10.result }}"
+          check_build "${{ inputs.build_a13_5_10 || inputs.build_all }}" "build-a13-5-10" "${{ needs.build-a13-5-10.result }}"
           check_build "${{ inputs.build_a13_5_15 || inputs.build_all }}" "build-a13-5-15" "${{ needs.build-a13-5-15.result }}"
+          check_build "${{ inputs.build_a14_5_15 || inputs.build_all }}" "build-a14-5-15" "${{ needs.build-a14-5-15.result }}"
           check_build "${{ inputs.build_a14_6_1 || inputs.build_all }}" "build-a14-6-1" "${{ needs.build-a14-6-1.result }}"
           check_build "${{ inputs.build_a15_6_6 || inputs.build_all }}" "build-a15-6-6" "${{ needs.build-a15-6-6.result }}"
           check_build "${{ inputs.build_a16_6_12 || inputs.build_all }}" "build-a16-6-12" "${{ needs.build-a16-6-12.result }}"
+          check_build "${{ inputs.build_a17_6_18 || inputs.build_all }}" "build-a17-6-18" "${{ needs.build-a17-6-18.result }}"
           [[ "$failed" -ne 0 ]] && exit 1 || true
 
       # ==================== 检出代码 ====================
@@ -600,7 +708,9 @@ jobs:
           GITLAB_REPO="susfs4ksu"
           declare -A BRANCH_MAP=(
             ["gki_android12_5_10"]="gki-android12-5.10"
+            ["gki_android13_5_10"]="gki-android13-5.10"
             ["gki_android13_5_15"]="gki-android13-5.15"
+            ["gki_android14_5_15"]="gki-android14-5.15"
             ["gki_android14_6_1"]="gki-android14-6.1"
             ["gki_android15_6_6"]="gki-android15-6.6"
             ["gki_android16_6_12"]="gki-android16-6.12"
@@ -638,10 +748,13 @@ jobs:
             fi
           }
           append_target "${{ inputs.build_a12_5_10 || inputs.build_all }}" "Android 12 / 5.10"
+          append_target "${{ inputs.build_a13_5_10 || inputs.build_all }}" "Android 13 / 5.10"
           append_target "${{ inputs.build_a13_5_15 || inputs.build_all }}" "Android 13 / 5.15"
+          append_target "${{ inputs.build_a14_5_15 || inputs.build_all }}" "Android 14 / 5.15"
           append_target "${{ inputs.build_a14_6_1 || inputs.build_all }}" "Android 14 / 6.1"
           append_target "${{ inputs.build_a15_6_6 || inputs.build_all }}" "Android 15 / 6.6"
           append_target "${{ inputs.build_a16_6_12 || inputs.build_all }}" "Android 16 / 6.12"
+          append_target "${{ inputs.build_a17_6_18 || inputs.build_all }}" "Android 17 / 6.18"
           if [[ -z "$build_targets" ]]; then
             build_targets="未选择"
           fi
@@ -654,7 +767,9 @@ jobs:
             fi
           }
           append_susfs_commit "${{ inputs.build_a12_5_10 || inputs.build_all }}" "Android 12 / 5.10" "${COMMIT_HASH_gki_android12_5_10}" "${COMMIT_URL_gki_android12_5_10}"
+          append_susfs_commit "${{ inputs.build_a13_5_10 || inputs.build_all }}" "Android 13 / 5.10" "${COMMIT_HASH_gki_android13_5_10}" "${COMMIT_URL_gki_android13_5_10}"
           append_susfs_commit "${{ inputs.build_a13_5_15 || inputs.build_all }}" "Android 13 / 5.15" "${COMMIT_HASH_gki_android13_5_15}" "${COMMIT_URL_gki_android13_5_15}"
+          append_susfs_commit "${{ inputs.build_a14_5_15 || inputs.build_all }}" "Android 14 / 5.15" "${COMMIT_HASH_gki_android14_5_15}" "${COMMIT_URL_gki_android14_5_15}"
           append_susfs_commit "${{ inputs.build_a14_6_1 || inputs.build_all }}" "Android 14 / 6.1" "${COMMIT_HASH_gki_android14_6_1}" "${COMMIT_URL_gki_android14_6_1}"
           append_susfs_commit "${{ inputs.build_a15_6_6 || inputs.build_all }}" "Android 15 / 6.6" "${COMMIT_HASH_gki_android15_6_6}" "${COMMIT_URL_gki_android15_6_6}"
           append_susfs_commit "${{ inputs.build_a16_6_12 || inputs.build_all }}" "Android 16 / 6.12" "${COMMIT_HASH_gki_android16_6_12}" "${COMMIT_URL_gki_android16_6_12}"

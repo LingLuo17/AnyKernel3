@@ -52,9 +52,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/ .github/workflows/kernel-custom.yml \
-            .github/workflows/kernel-a12-5-10.yml .github/workflows/kernel-a13-5-15.yml \
+            .github/workflows/kernel-a12-5-10.yml .github/workflows/kernel-a13-5-10.yml \
+            .github/workflows/kernel-a13-5-15.yml .github/workflows/kernel-a14-5-15.yml \
             .github/workflows/kernel-a14-6-1.yml .github/workflows/kernel-a15-6-6.yml \
-            .github/workflows/kernel-a16-6-12.yml
+            .github/workflows/kernel-a16-6-12.yml .github/workflows/kernel-a17-6-18.yml
           if git diff --cached --quiet; then
             echo "No data changes to commit."
           else
