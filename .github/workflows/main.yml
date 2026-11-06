@@ -62,6 +62,10 @@ on:
         default: ""
         required: false
       # ==================== 选项配置 ====================
+      use_kpm:
+        description: "KPM 功能（仅SukiSU支持，开启未修补）"
+        type: boolean
+        default: false
       droidspaces:
         description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
         type: choice
@@ -182,6 +186,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -209,6 +214,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -236,6 +242,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -263,6 +270,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -290,6 +298,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -317,6 +326,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -343,6 +353,7 @@ jobs:
       build_time: ${{ inputs.build_time || '' }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -369,6 +380,7 @@ jobs:
       build_time: ${{ inputs.build_time || '' }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm }}
       use_rekernel: ${{ inputs.use_rekernel }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
@@ -556,6 +568,7 @@ jobs:
           echo "LZ4_STATUS=${{ inputs.use_zram && '开启' || '未开启' }}" >> $GITHUB_ENV
           echo "BBG_STATUS=${{ inputs.use_bbg && '开启' || '未开启' }}" >> $GITHUB_ENV
           echo "REKERNEL_STATUS=${{ inputs.use_rekernel && '开启' || '未开启' }}" >> $GITHUB_ENV
+          echo "KPM_STATUS=${{ inputs.use_kpm && '开启（未修补）' || '未开启' }}" >> $GITHUB_ENV
 
           # Droidspaces 容器支持（含 NTSync）
           if [ "${{ inputs.droidspaces }}" = "off" ]; then
@@ -779,6 +792,7 @@ jobs:
           | BBG 基带保护 | $BBG_STATUS |
           | 网络增强 (BBRv3 / IPSet / Qdisc / CIFS) | $NET_ENHANCE_STATUS |
           | Re-Kernel 驱动 | $REKERNEL_STATUS |
+          | KPM | $KPM_STATUS |
           | Droidspaces 容器支持 | $DROIDSPACES_STATUS |
 
           ### 下载说明

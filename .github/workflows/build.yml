@@ -77,6 +77,10 @@ on:
         required: true
         type: boolean
         default: false
+      use_kpm:
+        required: true
+        type: boolean
+        default: false
       use_rekernel:
         required: false
         type: boolean
@@ -141,6 +145,7 @@ jobs:
           echo "ZRAM 压缩     : ${{ inputs.use_zram }}"
           echo "BBG 补丁      : ${{ inputs.use_bbg }}"
           echo "网络增强      : ${{ inputs.use_net_enhance }}"
+          echo "KPM 功能      : ${{ inputs.use_kpm && '开启' || '关闭' }}"
           echo "Re-Kernel     : ${{ inputs.use_rekernel }}"
           echo "CVE-2026-43499: ${{ inputs.cve_2026_43499_patch }}"
           echo "Droidspaces   : ${{ inputs.droidspaces }}"
@@ -1576,6 +1581,30 @@ jobs:
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%"' >> "$DEFCONFIG"
           fi
 
+          if [ "${{ inputs.ksu_variant }}" == "SukiSU" ] || [ "${{ inputs.ksu_variant }}" == "BakaSU" ]; then
+            if [ "${{ inputs.use_kpm }}" == "true" ]; then
+              if grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
+                echo "CONFIG_KPM=y" >> "$DEFCONFIG"
+              elif [ "$SKIP_INCOMPATIBLE" = "true" ]; then
+                echo "::warning title=KPM 已跳过::当前 KernelSU 代码未声明 CONFIG_KPM，已跳过 KPM 功能"
+                if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                  echo "" >> "$GITHUB_STEP_SUMMARY"
+                  echo "> ⏭️ **KPM** 已自动跳过：当前 KernelSU 代码未声明 CONFIG_KPM（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+                fi
+              else
+                echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
+                exit 1
+              fi
+            fi
+          elif [ "${{ inputs.ksu_variant }}" == "FinaSU" ]; then
+            if [ "${{ inputs.use_kpm }}" == "true" ]; then
+              echo "::warning title=KPM 不适用::FinaSU 不支持 KPM，已忽略该选项继续构建"
+              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "> ⏭️ **KPM** 已忽略：FinaSU 变体不支持 KPM（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          fi
 
           # FinaSU + SUSFS：选择 SUSFS Inline hook 后端；匹配的 50_add 补丁
           # 提供直接 ksu_handle_* 调用点，FinaSU Kbuild 会在编译期校验。

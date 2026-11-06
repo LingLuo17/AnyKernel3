@@ -321,6 +321,11 @@ on:
         default: ""
 
       # ==================== 选项配置 ====================
+      use_kpm:
+        description: "KPM 功能（仅SukiSU支持，开启未修补）"
+        required: false
+        type: boolean
+        default: false
       droidspaces:
         description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
         required: false
@@ -560,6 +565,7 @@ jobs:
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
       use_net_enhance: ${{ inputs.use_net_enhance }}
+      use_kpm: ${{ inputs.use_kpm || false }}
       use_rekernel: ${{ inputs.use_rekernel || false }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: ${{ inputs.supp_op || false }}
