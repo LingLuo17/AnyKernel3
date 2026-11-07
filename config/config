@@ -18,9 +18,9 @@ custom=true
 # ==================== SUSFS 各分支的 commit hash ====================
 # 仅当 custom=true 时生效
 gki-android12-5.10=8930474a298d07ab9f1beca926779cbc3656b79e
-gki-android13-5.10=
+gki-android13-5.10=cfa82d53371b2dacb3ed79e31cb62a9cc349b5d5
 gki-android13-5.15=e30f1502a870434150efb16bd4a0d33277d7da57
-gki-android14-5.15=
+gki-android14-5.15=251a2ec4038ba241609fb4ad032ea0990cffa691
 gki-android14-6.1=ee155a1ad4219804a7c54cb39dd4fa1b5c2a3fa4
 gki-android15-6.6=93114563fd6b08092b9ce8c0309738c921ac8bd1
 gki-android16-6.12=6b60a305d418148bd311f4fc9bddedc82d99e1fc
