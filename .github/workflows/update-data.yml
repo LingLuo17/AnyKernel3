@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   update-data:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       # GITHUB_TOKEN 永远无法推送 .github/workflows 变更（官方不提供
       # workflow scope，防止 Actions 自我修改），必须用带 workflow

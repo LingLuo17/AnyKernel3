@@ -118,7 +118,7 @@ on:
 jobs:
   build-kernel:
     name: "${{ inputs.kernel_version }}.${{ inputs.display_sub || inputs.sub_level }}-${{ inputs.android_version }}-${{ inputs.os_patch_level }}-${{ inputs.ksu_variant }}"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # repo sync 重试（3 x 20 分钟）+ 完整构建需要 60 分钟以上的余量
     timeout-minutes: 90
 
@@ -388,21 +388,20 @@ jobs:
             exit 1
           fi
 
-          # 完整性守卫：repo sync 断点续传偶发留下检出不完整的项目（如 clang 工具链
-          # 项目缺少 kleaf/BUILD.bazel），bazel 加载阶段会报
-          # "Every .bzl file must have a corresponding package" 而失败；检测到时
-          # 强制重新同步该项目
-          for CHECK_PATH in \
-            prebuilts/clang/host/linux-x86/kleaf/clang_toolchain_repository.bzl \
-            build/kernel/kleaf/common_kernels.bzl; do
-            DIR_PATH="${CHECK_PATH%/*}"
-            if [ -e "$DIR_PATH" ] && [ ! -f "$CHECK_PATH" ]; then
-              PROJECT_DIR="${DIR_PATH%/kleaf}"
-              if [ -d ".repo/projects" ]; then
-                echo "::warning title=repo sync 完整性守卫::$DIR_PATH 存在但缺少 $(basename "$CHECK_PATH")，重新同步 $PROJECT_DIR"
-                timeout --kill-after=30 20m $REPO sync -c --force-sync --fail-fast "$PROJECT_DIR" \
-                  || echo "::warning title=repo sync 完整性守卫::重同步 $PROJECT_DIR 失败，继续构建"
-              fi
+          # 完整性守卫：repo sync 断点续传偶发留下检出不完整的项目，表现为目录里
+          # 只剩零散文件、缺 BUILD 文件，bazel 加载阶段会报
+          # "Every .bzl file must have a corresponding package"。
+          # 只校验 kleaf/BUILD.bazel（Bazel 包标识）：kleaf 目录存在却无 BUILD 文件
+          # 一定意味着检出不完整。不要校验具体的 .bzl 文件——旧分支（如 6.1 用的
+          # main-kernel-build-2023）kleaf 目录本就不含较晚才加入的脚本，会误报。
+          for KLEAF_DIR in \
+            prebuilts/clang/host/linux-x86/kleaf \
+            build/kernel/kleaf; do
+            if [ -d "$KLEAF_DIR" ] && [ ! -f "$KLEAF_DIR/BUILD.bazel" ]; then
+              PROJECT_DIR="${KLEAF_DIR%/kleaf}"
+              echo "::warning title=repo sync 完整性守卫::$KLEAF_DIR 缺少 BUILD.bazel，检出不完整，重新同步 $PROJECT_DIR"
+              timeout --kill-after=30 20m $REPO sync -c --force-sync --fail-fast "$PROJECT_DIR" \
+                || echo "::warning title=repo sync 完整性守卫::重同步 $PROJECT_DIR 失败，继续构建"
             fi
           done
 

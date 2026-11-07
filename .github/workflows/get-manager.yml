@@ -45,7 +45,7 @@ on:
 
 jobs:
   get_ksu_manager:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       # 输出1: KSU版本号
       ksuVer: ${{ steps.get_version.outputs.kversion }}

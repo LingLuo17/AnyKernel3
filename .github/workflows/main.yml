@@ -394,7 +394,7 @@ jobs:
   # 汇总所有构建任务中的 .rej 文件，方便调试补丁问题
   collect-rejects:
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - build-a12-5-10
       - build-a13-5-10
@@ -436,7 +436,7 @@ jobs:
   # 按构建名称汇总所有失败日志，方便统一下载和定位问题
   collect-build-logs:
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs:
       - build-a12-5-10
       - build-a13-5-10
@@ -519,7 +519,7 @@ jobs:
   # 发布类型选择 Actions 时仅上传 Artifacts，不创建 Release
   release:
     if: ${{ always() && !cancelled() && inputs.release_type != 'Actions' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       actions: write
