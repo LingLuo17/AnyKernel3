@@ -21,7 +21,8 @@ KERNEL_SRC="${1:-common}"
 BBG_C="$KERNEL_SRC/security/baseband-guard/blkdev_helper.c"
 
 if [ ! -f "$BBG_C" ]; then
-  echo "::warning::BBG blkdev_helper.c 不存在（$BBG_C），跳过补丁"
+  # 未启用 BBG 的版本没有该文件，属正常跳过，只在日志记录、不产生注解
+  echo "BBG blkdev_helper.c 不存在（$BBG_C），跳过补丁"
   exit 0
 fi
 
@@ -47,7 +48,8 @@ if grep -q 'blkdev_get_no_open(dev_t dev, bool' "$KERNEL_SRC/block/blk.h" 2>/dev
 elif grep -q 'blkdev_get_no_open(dev_t dev)' "$KERNEL_SRC/block/blk.h" 2>/dev/null; then
   NEW_CALL='bdev = blkdev_get_no_open(dev);'
 else
-  echo "::warning::block/blk.h 中无 blkdev_get_no_open 声明，跳过自动适配（上游 BBG 布局可能已变化）"
+  # 5.10 等旧版本没有该 API，属正常跳过，只在日志记录、不产生注解
+  echo "block/blk.h 中无 blkdev_get_no_open 声明，跳过自动适配（上游 BBG 布局可能已变化）"
   exit 0
 fi
 

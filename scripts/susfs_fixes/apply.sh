@@ -167,6 +167,12 @@ if [[ "$ANDROID_VERSION" == "android12" && "$KERNEL_VERSION" == "5.10" ]]; then
   fi
 fi
 
+# Android 13 的 5.10.107 仍使用旧式 fdinfo 上下文，与 Android 12 旧版本相同
+if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.10" && "$CURRENT_SUB" -le 107 ]]; then
+  echo "临时调整 Android 13 5.10 fdinfo.c 上下文"
+  adjust_legacy_fdinfo_context
+fi
+
 if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then
   if [[ "$CURRENT_SUB" -le 41 ]]; then
     echo "临时调整 Android 13 5.15 namespace.c/open.c/fdinfo.c 上下文"
@@ -684,6 +690,11 @@ if [[ "$ANDROID_VERSION" == "android12" && "$KERNEL_VERSION" == "5.10" ]]; then
     echo "还原 Android 12 5.10 fdinfo.c 临时调整"
     restore_legacy_fdinfo_context
   fi
+fi
+
+if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.10" && "$CURRENT_SUB" -le 107 ]]; then
+  echo "还原 Android 13 5.10 fdinfo.c 临时调整"
+  restore_legacy_fdinfo_context
 fi
 
 if [[ "$ANDROID_VERSION" == "android13" && "$KERNEL_VERSION" == "5.15" ]]; then

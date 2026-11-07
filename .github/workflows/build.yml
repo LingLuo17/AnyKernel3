@@ -378,7 +378,8 @@ jobs:
               SYNC_OK=true
               break
             fi
-            echo "::warning title=repo sync 重试::第 ${SYNC_ATTEMPT}/3 次同步失败或超时，清理残留 git 进程后重试"
+            # 可恢复的重试只写日志；连续三次失败仍由下方 error 注解报告
+            echo "repo sync 重试：第 ${SYNC_ATTEMPT}/3 次同步失败或超时，清理残留 git 进程后重试"
             pkill -9 -f 'git-remote-https' 2>/dev/null || true
             pkill -9 -f 'android\.googlesource\.com' 2>/dev/null || true
             sleep 10
