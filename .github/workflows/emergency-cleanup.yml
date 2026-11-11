@@ -20,6 +20,9 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   cleanup:
     runs-on: ubuntu-24.04
