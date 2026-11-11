@@ -85,6 +85,10 @@ on:
         required: false
         type: boolean
         default: false
+      use_nomount:
+        required: false
+        type: boolean
+        default: false
       cve_2026_43499_patch:
         required: false
         type: boolean
@@ -146,6 +150,7 @@ jobs:
           echo "BBG 补丁      : ${{ inputs.use_bbg }}"
           echo "网络增强      : ${{ inputs.use_net_enhance }}"
           echo "KPM 功能      : ${{ inputs.use_kpm && '开启' || '关闭' }}"
+          echo "NoMount 元模块: ${{ inputs.use_nomount && '开启' || '关闭' }}"
           echo "Re-Kernel     : ${{ inputs.use_rekernel }}"
           echo "CVE-2026-43499: ${{ inputs.cve_2026_43499_patch }}"
           echo "Droidspaces   : ${{ inputs.droidspaces }}"
@@ -761,6 +766,49 @@ jobs:
 
       - name: 备份基准 defconfig
         run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
+
+      - name: 集成 NoMount 挂载元模块
+        if: inputs.use_nomount
+        working-directory: ${{ env.KERNEL_ROOT }}/common
+        run: |
+          # NoMount 在 fs/ 层注册子系统，不依赖传统挂载点，可与任意 KSU 变体及 SUSFS 共存。
+          # 必须在「备份基准 defconfig」之后追加 CONFIG_NOMOUNT，6.1+ 的 bazel fragment 才能捕获。
+          set -euo pipefail
+          NOMOUNT_SETUP_URL="https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh"
+
+          nomount_cleanup() {
+            curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors "$NOMOUNT_SETUP_URL" \
+              | bash -s -- --cleanup >/dev/null 2>&1 || true
+          }
+          nomount_fail() {
+            nomount_cleanup
+            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
+              echo "::warning title=NoMount 已跳过::$1，已跳过 NoMount 元模块集成"
+              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "> ⏭️ **NoMount 元模块** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+              fi
+              echo "NOMOUNT_SKIPPED=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            echo "::error::$1"
+            exit 1
+          }
+
+          echo "拉取并执行 NoMount 上游集成脚本 (dev)..."
+          if ! curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "$NOMOUNT_SETUP_URL" | bash -s -- dev; then
+            nomount_fail "NoMount 集成脚本执行失败"
+          fi
+          [ -L "fs/nomount" ] || nomount_fail "NoMount 集成后 fs/nomount 软链接缺失"
+          grep -q 'source "fs/nomount/Kconfig"' fs/Kconfig || nomount_fail "NoMount 集成后 fs/Kconfig 未注册"
+          echo "NoMount 集成完成，commit: $(git -C NoMount rev-parse HEAD)"
+
+          if ! grep -q '^CONFIG_NOMOUNT=y' "$DEFCONFIG"; then
+            echo "CONFIG_NOMOUNT=y" >> "$DEFCONFIG"
+            echo "已启用 CONFIG_NOMOUNT=y"
+          else
+            echo "CONFIG_NOMOUNT=y 已存在，跳过"
+          fi
 
       - name: 集成 Droidspaces 支持
         if: inputs.droidspaces != 'off' && env.DROIDSPACES_SKIPPED != 'true'

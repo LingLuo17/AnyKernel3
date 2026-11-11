@@ -48,6 +48,7 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 | 🛡️ BBG (Baseband Guard) | BBG patch to protect the baseband partitions from accidental wipe |
 | 🌐 Network enhancement | Optional network stack upgrade: BBRv3 backport where available (defaults to BBR v1 otherwise), full IPSet types up to 65534 sets, fq/fq_codel/cake qdisc, connmark, IPv6 NAT/masquerade, TTL/HopLimit match, WireGuard, CIFS |
 | 🔔 Re-Kernel | Optional Re-Kernel driver integration |
+| 🧷 NoMount | Optional [NoMount](https://github.com/maxsteeel/nomount) mount metamodule integration (needs the matching module flashed) |
 | ⚡ KPM | Optional KPM feature (SukiSU only, build-time patching handled by the manager) |
 | 🩹 CVE-2026-43499 | Optional automatic application of the rtmutex fix |
 | 📱 OnePlus Snapdragon 8 Elite / Gen5 Support | Optional: Add support for OnePlus Snapdragon 8 Elite / Gen5 processor |
@@ -171,6 +172,7 @@ A commit is a hash string representing the state of a repository at a certain po
 | 🛡️ BBG 基带保护 | BBG（BaseBand Guard）补丁，保护基带分区，防止基带被意外擦除 |
 | 🌐 网络增强 | 可选网络栈增强：可用版本回移 BBRv3（无 backport 时退回 BBR v1）+ IPSet 全类型（集合上限 65534）+ fq/fq_codel/cake 队列 + connmark + IPv6 NAT/伪装 + TTL/HopLimit 匹配 + WireGuard + CIFS |
 | 🔔 Re-Kernel | 可选集成 Re-Kernel 驱动 |
+| 🧷 NoMount | 可选 [NoMount](https://github.com/maxsteeel/nomount) 挂载元模块集成（需自行刷入配套模块） |
 | ⚡ KPM | 可选开启 KPM 功能（仅 SukiSU 支持，修补由管理器侧完成） |
 | 🩹 CVE-2026-43499 | 可选自动应用 rtmutex 修复补丁 |
 | 📱 一加 骁龙8 Elite/Gen5 支持 | 可选添加一加 骁龙8 Elite/Gen5 处理器支持 |

@@ -81,6 +81,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_nomount:
+        description: "启用 NoMount 挂载元模块（需自行刷入配套模块）"
+        required: false
+        type: boolean
+        default: false
       cve_2026_43499_patch:
         description: "应用 CVE-2026-43499 rtmutex 修复链"
         required: false
@@ -133,6 +138,10 @@ on:
         type: boolean
         default: false
       use_rekernel:
+        required: false
+        type: boolean
+        default: false
+      use_nomount:
         required: false
         type: boolean
         default: false
@@ -250,6 +259,7 @@ jobs:
       use_net_enhance: ${{ inputs.use_net_enhance }}
       use_kpm: ${{ inputs.use_kpm || false }}
       use_rekernel: ${{ inputs.use_rekernel || false }}
+      use_nomount: ${{ inputs.use_nomount || false }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: ${{ inputs.supp_op || false }}
       enable_susfs: ${{ !inputs.cancel_susfs }}
