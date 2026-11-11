@@ -67,18 +67,17 @@ on:
         type: boolean
         default: false
       droidspaces:
-        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
+        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关；带 NTSync 的选项会同时注入 NTSync)"
         type: choice
         options:
           - "off"
           - "678"
           - "123"
           - "345"
+          - "678 (NTSync)"
+          - "123 (NTSync)"
+          - "345 (NTSync)"
         default: "off"
-      droidspaces_ntsync:
-        description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
-        type: boolean
-        default: false
       artifact_upload_mode:
         description: "构建产物上传模式"
         required: true
@@ -195,9 +194,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -224,9 +223,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -253,9 +252,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -282,9 +281,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -311,9 +310,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -340,9 +339,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -368,9 +367,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -396,9 +395,9 @@ jobs:
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       cancel_susfs: ${{ inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
@@ -585,7 +584,7 @@ jobs:
           # Droidspaces 容器支持（含 NTSync）
           if [ "${{ inputs.droidspaces }}" = "off" ]; then
             echo "DROIDSPACES_STATUS=未开启" >> $GITHUB_ENV
-          elif [ "${{ inputs.droidspaces_ntsync }}" = "true" ]; then
+          elif [[ "${{ inputs.droidspaces }}" == *NTSync* ]]; then
             echo "DROIDSPACES_STATUS=开启（NTSync）" >> $GITHUB_ENV
           else
             echo "DROIDSPACES_STATUS=开启" >> $GITHUB_ENV

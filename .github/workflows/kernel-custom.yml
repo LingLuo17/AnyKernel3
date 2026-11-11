@@ -327,7 +327,7 @@ on:
         type: boolean
         default: false
       droidspaces:
-        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关)"
+        description: "Droidspaces 容器支持 (5.10~6.6: 槽位补丁, 6.12: 开/关；带 NTSync 的选项会同时注入 NTSync)"
         required: false
         type: choice
         options:
@@ -335,6 +335,9 @@ on:
           - "678"
           - "123"
           - "345"
+          - "678 (NTSync)"
+          - "123 (NTSync)"
+          - "345 (NTSync)"
         default: "off"
       artifact_upload_mode:
         description: "构建产物上传模式"
@@ -344,11 +347,6 @@ on:
           - "仅上传 AnyKernel3.zip"
           - "上传全部"
         default: "仅上传 AnyKernel3.zip"
-      droidspaces_ntsync:
-        description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
-        required: false
-        type: boolean
-        default: false
 
       # ==================== 功能开关 ====================
       use_zram:
@@ -576,8 +574,8 @@ jobs:
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: ${{ inputs.supp_op || false }}
       enable_susfs: ${{ !inputs.cancel_susfs }}
-      droidspaces: ${{ inputs.droidspaces || 'off' }}
-      droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
+      droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
+      droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       skip_incompatible: ${{ inputs.skip_incompatible || false }}
 
