@@ -56,6 +56,15 @@ on:
           - "仅上传 AnyKernel3.zip"
           - "上传全部"
         default: "仅上传 AnyKernel3.zip"
+      ksu_mode:
+        description: "KernelSU / SUSFS 模式"
+        required: true
+        type: choice
+        options:
+          - "关闭"
+          - "禁用SUSFS"
+          - "禁用KSU"
+        default: "关闭"
       droidspaces_ntsync:
         description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
         required: false
@@ -89,11 +98,6 @@ on:
       cve_2026_43499_patch:
         description: "应用 CVE-2026-43499 rtmutex 修复链"
         required: false
-        type: boolean
-        default: false
-      cancel_susfs:
-        description: "禁用 SUSFS"
-        required: true
         type: boolean
         default: false
       skip_incompatible:
@@ -144,9 +148,10 @@ on:
         required: false
         type: boolean
         default: false
-      cancel_susfs:
+      ksu_mode:
         required: false
-        type: boolean
+        type: string
+        default: "关闭"
       droidspaces:
         required: false
         type: string
@@ -260,7 +265,8 @@ jobs:
       use_nomount: ${{ inputs.use_nomount || false }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: false
-      enable_susfs: ${{ !inputs.cancel_susfs }}
+      enable_susfs: ${{ inputs.ksu_mode != '禁用SUSFS' && inputs.ksu_mode != '禁用KSU' }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
@@ -274,7 +280,7 @@ jobs:
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       build_channel: ${{ inputs.build_channel }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       use_nomount: ${{ inputs.use_nomount || false }}
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}

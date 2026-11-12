@@ -97,6 +97,10 @@ on:
         required: true
         type: boolean
         default: true
+      ksu_mode:
+        required: false
+        type: string
+        default: "关闭"
       supp_op:
         required: false
         type: boolean
@@ -488,6 +492,7 @@ jobs:
 
       - name: 确定 KernelSU 分支
         id: ksu-branch
+        if: inputs.ksu_mode != '禁用KSU'
         run: |
           variant_input="${{ inputs.ksu_variant }}"
 
@@ -528,6 +533,7 @@ jobs:
           echo "KSU 分支: $BRANCH"
 
       - name: 添加 KernelSU
+        if: inputs.ksu_mode != '禁用KSU'
         working-directory: ${{ env.KERNEL_ROOT }}
         env:
           KSU_COMMIT: ${{ inputs.ksu_commit }}
@@ -699,7 +705,9 @@ jobs:
               esac
             fi
           fi
-          if [ -n "$KSU_VERSION" ]; then
+          if [ "${{ inputs.ksu_mode }}" = "禁用KSU" ]; then
+            AK3_NAME="KSU-free-${CONFIG}"
+          elif [ -n "$KSU_VERSION" ]; then
             AK3_NAME="${{ inputs.ksu_variant }}-${KSU_VERSION}-${CONFIG}"
           else
             AK3_NAME="${{ inputs.ksu_variant }}_kernel-${CONFIG}"
@@ -722,7 +730,7 @@ jobs:
       # 注入 LOOKUP_SYMBOLS 处理器 + symbol_resolver 内核侧能力；
       # 上游 builtin 自行同步后自动跳过，详见 scripts/ksu_uapi_sync/sync_uapi.sh
       - name: 同步 SukiSU 内核 UAPI 版本（对齐官方管理器）
-        if: inputs.ksu_variant == 'SukiSU'
+        if: inputs.ksu_variant == 'SukiSU' && inputs.ksu_mode != '禁用KSU'
         working-directory: ${{ env.KERNEL_ROOT }}
         run: bash "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/sync_uapi.sh" KernelSU
 
@@ -732,7 +740,7 @@ jobs:
       # 补丁内部以 LINUX_VERSION_CODE 守卫，6.7 及以下内核行为不变，
       # SukiSU 上游修复后按内容检测自动跳过。
       - name: 应用 SukiSU 内核 API 兼容补丁 (6.8+ lsm_id)
-        if: inputs.ksu_variant == 'SukiSU'
+        if: inputs.ksu_variant == 'SukiSU' && inputs.ksu_mode != '禁用KSU'
         working-directory: ${{ env.KERNEL_ROOT }}
         run: bash "$GITHUB_WORKSPACE/scripts/sukisu_compat/apply.sh" KernelSU
 
@@ -1617,15 +1625,19 @@ jobs:
         working-directory: ${{ env.KERNEL_ROOT }}
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
-          CONFIG_KSU=y
           CONFIG_KALLSYMS_ALL=y
           CONFIG_TMPFS_XATTR=y
           CONFIG_TMPFS_POSIX_ACL=y
           EOF
 
+          # 禁用 KSU 时源码里没有 KernelSU，CONFIG_KSU 会被 bazel defconfig 校验拒绝
+          if [ "${{ inputs.ksu_mode }}" != "禁用KSU" ]; then
+            echo "CONFIG_KSU=y" >> "$DEFCONFIG"
+          fi
+
           # BakaSU 上游改名后 Kconfig 默认值去掉了 @%REPO_NAME%，显式加回模板，
           # 配合 ksu_post_setup.sh 的 REPO_NAME := LingLuo 改写，管理器才能显示 @LingLuo 后缀
-          if [ "${{ inputs.ksu_variant }}" == "BakaSU" ]; then
+          if [ "${{ inputs.ksu_variant }}" == "BakaSU" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ]; then
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%"' >> "$DEFCONFIG"
           fi
 

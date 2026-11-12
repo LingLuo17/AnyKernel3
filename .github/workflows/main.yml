@@ -86,6 +86,14 @@ on:
           - "仅上传 AnyKernel3.zip"
           - "上传全部"
         default: "仅上传 AnyKernel3.zip"
+      ksu_mode:
+        description: "KernelSU / SUSFS 模式"
+        type: choice
+        options:
+          - "关闭"
+          - "禁用SUSFS"
+          - "禁用KSU"
+        default: "关闭"
 
       # ==================== 功能开关 ====================
       use_zram:
@@ -110,10 +118,6 @@ on:
         default: false
       cve_2026_43499_patch:
         description: "应用 CVE-2026-43499 rtmutex 修复链"
-        type: boolean
-        default: false
-      cancel_susfs:
-        description: "禁用 SUSFS"
         type: boolean
         default: false
 
@@ -170,7 +174,7 @@ jobs:
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       build_channel: ${{ inputs.build_channel }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       use_nomount: ${{ inputs.use_nomount }}
       use_zram: ${{ inputs.use_zram }}
       use_bbg: ${{ inputs.use_bbg }}
@@ -207,7 +211,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -236,7 +240,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -265,7 +269,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -294,7 +298,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -323,7 +327,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -352,7 +356,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -380,7 +384,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -408,7 +412,7 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_nomount: ${{ inputs.use_nomount }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
@@ -617,9 +621,31 @@ jobs:
             echo "MOUNT_TYPE=Magic Mount" >> $GITHUB_ENV
           fi
 
+          echo "CHANNEL_TAG=${{ needs.get-manager.outputs.channelTag }}" >> $GITHUB_ENV
+          echo "CHANNEL_NAME=${{ inputs.build_channel }}" >> $GITHUB_ENV
+
           # 发布标题与正文标题
           echo "RELEASE_NAME=GKI Kernel: ${KSU_NAME} ${KSU_VER} + SUSFS ${SUS_VER}" >> $GITHUB_ENV
           echo "RELEASE_HEADER=**${KSU_NAME} ${KSU_VER}** + **SUSFS ${SUS_VER}**" >> $GITHUB_ENV
+
+          # KernelSU / SUSFS 模式覆盖（GITHUB_ENV 后写入的同名变量生效）
+          case "${{ inputs.ksu_mode }}" in
+            "禁用KSU")
+              echo "KSU_NAME=未集成" >> $GITHUB_ENV
+              echo "KSU_VER=-" >> $GITHUB_ENV
+              echo "SUS_VER=未集成" >> $GITHUB_ENV
+              echo "HOOK_TYPE=无" >> $GITHUB_ENV
+              echo "MOUNT_TYPE=无" >> $GITHUB_ENV
+              echo "BRANCH_INFO=-" >> $GITHUB_ENV
+              echo "RELEASE_NAME=GKI Kernel: 纯净版（无 KernelSU / SUSFS）" >> $GITHUB_ENV
+              echo "RELEASE_HEADER=**纯净 GKI 内核**（未集成 KernelSU / SUSFS）" >> $GITHUB_ENV
+              ;;
+            "禁用SUSFS")
+              echo "SUS_VER=未集成" >> $GITHUB_ENV
+              echo "RELEASE_NAME=GKI Kernel: ${KSU_NAME} ${KSU_VER}（无 SUSFS）" >> $GITHUB_ENV
+              echo "RELEASE_HEADER=**${KSU_NAME} ${KSU_VER}**（未集成 SUSFS）" >> $GITHUB_ENV
+              ;;
+          esac
 
       # ==================== 验证构建状态 ====================
       # 确保所有选中的构建任务都成功完成
@@ -652,13 +678,14 @@ jobs:
       # ==================== 确定 KSU 引用 ====================
       # 根据实际构建逻辑确定 KernelSU 上游引用
       - name: 确定 KSU 引用
+        if: inputs.ksu_mode != '禁用KSU'
         run: |
           case "${{ inputs.kernelsu_variant }}" in
             "SukiSU")
-              if [ "${{ inputs.cancel_susfs }}" = "true" ]; then
-                BRANCH="main"
-              else
+              if [ "${{ inputs.ksu_mode }}" = "关闭" ]; then
                 BRANCH="builtin"
+              else
+                BRANCH="main"
               fi
               ;;
             "BakaSU") BRANCH="main" ;;
@@ -667,9 +694,6 @@ jobs:
           esac
           echo "KSU_BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "BRANCH_INFO=$BRANCH" >> $GITHUB_ENV
-          # 正式通道选用的 Release 标签（最新通道为空）
-          echo "CHANNEL_TAG=${{ needs.get-manager.outputs.channelTag }}" >> $GITHUB_ENV
-          echo "CHANNEL_NAME=${{ inputs.build_channel }}" >> $GITHUB_ENV
 
       # ==================== 获取 KernelSU 提交信息 ====================
       # 获取当前使用的 KernelSU 版本的 Git 提交信息
@@ -786,7 +810,9 @@ jobs:
           append_susfs_commit "${{ inputs.build_a14_6_1 || inputs.build_all }}" "Android 14 / 6.1" "${COMMIT_HASH_gki_android14_6_1}" "${COMMIT_URL_gki_android14_6_1}"
           append_susfs_commit "${{ inputs.build_a15_6_6 || inputs.build_all }}" "Android 15 / 6.6" "${COMMIT_HASH_gki_android15_6_6}" "${COMMIT_URL_gki_android15_6_6}"
           append_susfs_commit "${{ inputs.build_a16_6_12 || inputs.build_all }}" "Android 16 / 6.12" "${COMMIT_HASH_gki_android16_6_12}" "${COMMIT_URL_gki_android16_6_12}"
-          if [[ ! -s susfs_commits.md ]]; then
+          if [ "${{ inputs.ksu_mode }}" != "关闭" ]; then
+            echo "- 本次构建未集成 SUSFS" > susfs_commits.md
+          elif [[ ! -s susfs_commits.md ]]; then
             echo "- 未获取到本次构建对应的 SUSFS 提交信息" > susfs_commits.md
           fi
 

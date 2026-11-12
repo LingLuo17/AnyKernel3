@@ -14,11 +14,11 @@ on:
         required: false
         type: string
         default: "正式 (Release)"
-      cancel_susfs:
-        description: "禁用 SUSFS（禁用时不再下载 SUSFS 模块）"
+      ksu_mode:
+        description: "KernelSU / SUSFS 模式（关闭时下载 SUSFS 模块）"
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "关闭"
       use_nomount:
         description: "启用 NoMount 挂载元模块（启用时下载配套模块）"
         required: false
@@ -138,6 +138,7 @@ jobs:
 
       - name: 获取 KSU & SUSFS 版本
         id: get_version
+        if: inputs.ksu_mode != '禁用KSU'
         run: |
 
           if [ "${{ inputs.kernelsu_variant }}" == "SukiSU" ]; then
@@ -297,6 +298,7 @@ jobs:
 
       - name: 添加 KernelSU
         id: add_KSU
+        if: inputs.ksu_mode != '禁用KSU'
         continue-on-error: true
         run: |
           VARIANT="${{ inputs.kernelsu_variant }}"
@@ -731,7 +733,7 @@ jobs:
 
       - name: 添加 SUSFS 模块
         id: add_SUSFS
-        if: ${{ !inputs.cancel_susfs }}
+        if: inputs.ksu_mode == '关闭'
         continue-on-error: true
         run: |
           # 上游 susfs4ksu-module 的 Actions artifacts 已全部过期，
@@ -777,7 +779,7 @@ jobs:
 
       - name: 添加 NoMount 模块
         id: add_nomount
-        if: inputs.use_nomount
+        if: inputs.use_nomount && inputs.ksu_mode != '禁用KSU'
         continue-on-error: true
         run: |
           # NoMount 以挂载元模块形式随 Release 发布，启用 use_nomount 时拉取最新模块 zip
@@ -827,6 +829,9 @@ jobs:
         run: |
           VARIANT="${{ inputs.kernelsu_variant }}"
           MANAGER_VER="${{ steps.add_KSU.outputs.managerVer }}"
+          if [ "${{ inputs.ksu_mode }}" = "禁用KSU" ]; then
+            MANAGER_VER="未集成"
+          fi
           [ -n "$MANAGER_VER" ] || MANAGER_VER="未获取"
 
           case "${CHANNEL_KIND:-}" in
@@ -836,10 +841,10 @@ jobs:
 
           flag() { [ "$1" = "true" ] && echo "✅ 启用" || echo "➖ 关闭"; }
 
-          if [ "${{ inputs.cancel_susfs }}" = "true" ]; then
-            SUS_ROW="⛔ 禁用"
-          else
+          if [ "${{ inputs.ksu_mode }}" = "关闭" ]; then
             SUS_ROW="✅ 启用"
+          else
+            SUS_ROW="⛔ 禁用"
           fi
 
           DS_RAW="${{ inputs.droidspaces }}"
@@ -868,7 +873,11 @@ jobs:
           {
             echo "## 📊 构建总结"
             echo ""
-            echo "**$VARIANT** · 管理器 \`$MANAGER_VER\` · $CH_LABEL"
+            if [ "${{ inputs.ksu_mode }}" = "禁用KSU" ]; then
+              echo "**未集成 KernelSU** · $CH_LABEL"
+            else
+              echo "**$VARIANT** · 管理器 \`$MANAGER_VER\` · $CH_LABEL"
+            fi
             echo ""
             echo "### ⚙️ 构建选项"
             echo ""

@@ -56,6 +56,15 @@ on:
           - "仅上传 AnyKernel3.zip"
           - "上传全部"
         default: "仅上传 AnyKernel3.zip"
+      ksu_mode:
+        description: "KernelSU / SUSFS 模式（android17-6.18 的 SUSFS 固定禁用）"
+        required: true
+        type: choice
+        options:
+          - "关闭"
+          - "禁用SUSFS"
+          - "禁用KSU"
+        default: "关闭"
       droidspaces_ntsync:
         description: "启用 Droidspaces 容器 NTSync 支持（需启用 Droidspaces）"
         required: false
@@ -86,11 +95,6 @@ on:
         required: false
         type: boolean
         default: false
-      cancel_susfs:
-        description: "禁用 SUSFS（上游未适配 android17-6.18，固定禁用）"
-        required: true
-        type: boolean
-        default: true
       skip_incompatible:
         description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
         required: false
@@ -136,9 +140,10 @@ on:
         required: false
         type: boolean
         default: false
-      cancel_susfs:
+      ksu_mode:
         required: false
-        type: boolean
+        type: string
+        default: "关闭"
       droidspaces:
         required: false
         type: string
@@ -221,6 +226,7 @@ jobs:
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
       supp_op: false
       enable_susfs: false
+      ksu_mode: ${{ inputs.ksu_mode }}
       droidspaces: ${{ inputs.droidspaces || 'off' }}
       droidspaces_ntsync: ${{ inputs.droidspaces_ntsync || false }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
@@ -234,7 +240,7 @@ jobs:
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       build_channel: ${{ inputs.build_channel }}
-      cancel_susfs: ${{ inputs.cancel_susfs }}
+      ksu_mode: ${{ inputs.ksu_mode }}
       use_nomount: ${{ inputs.use_nomount || false }}
       use_zram: false
       use_bbg: ${{ inputs.use_bbg }}
