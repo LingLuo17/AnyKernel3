@@ -24,6 +24,57 @@ on:
         required: false
         type: boolean
         default: false
+      use_zram:
+        required: false
+        type: boolean
+        default: false
+      use_bbg:
+        required: false
+        type: boolean
+        default: false
+      use_net_enhance:
+        required: false
+        type: boolean
+        default: false
+      use_rekernel:
+        required: false
+        type: boolean
+        default: false
+      use_kpm:
+        required: false
+        type: boolean
+        default: false
+      cve_2026_43499_patch:
+        required: false
+        type: boolean
+        default: false
+      skip_incompatible:
+        required: false
+        type: boolean
+        default: true
+      droidspaces:
+        description: "Droidspaces 槽位（off/678/123/345）"
+        required: false
+        type: string
+        default: "off"
+      droidspaces_ntsync:
+        required: false
+        type: boolean
+        default: false
+      artifact_upload_mode:
+        required: false
+        type: string
+        default: "仅上传 AnyKernel3.zip"
+      version:
+        description: "自定义版本名（留空=默认）"
+        required: false
+        type: string
+        default: ""
+      build_time:
+        description: "自定义构建时间（留空=自动获取当前北京时间）"
+        required: false
+        type: string
+        default: ""
     outputs:
       susVer:
         description: "The fetched SUSFS version number"
@@ -771,24 +822,71 @@ jobs:
         if: steps.add_KSU.outcome == 'failure'
         run: echo "下载CI构建的KSU失败!"
 
-      - name: 构建通道摘要
+      - name: 构建总结
         if: always()
         run: |
+          VARIANT="${{ inputs.kernelsu_variant }}"
+          MANAGER_VER="${{ steps.add_KSU.outputs.managerVer }}"
+          [ -n "$MANAGER_VER" ] || MANAGER_VER="未获取"
+
+          case "${CHANNEL_KIND:-}" in
+            latest) CH_LABEL="最新通道（HEAD）" ;;
+            *)      CH_LABEL="正式通道（Release）" ;;
+          esac
+
+          flag() { [ "$1" = "true" ] && echo "✅ 启用" || echo "➖ 关闭"; }
+
+          if [ "${{ inputs.cancel_susfs }}" = "true" ]; then
+            SUS_ROW="⛔ 禁用"
+          else
+            SUS_ROW="✅ 启用"
+          fi
+
+          DS_RAW="${{ inputs.droidspaces }}"
+          DS_SLOT="${DS_RAW%% *}"
+          if [ -z "$DS_SLOT" ] || [ "$DS_SLOT" = "off" ]; then
+            DS_ROW="➖ 关闭"
+          elif [ "${{ inputs.droidspaces_ntsync }}" = "true" ]; then
+            DS_ROW="✅ 槽位 $DS_SLOT + NTSync"
+          else
+            DS_ROW="✅ 槽位 $DS_SLOT"
+          fi
+
+          if [ "${{ inputs.use_kpm }}" != "true" ]; then
+            KPM_ROW="➖ 关闭"
+          elif [ "$VARIANT" = "FinaSU" ]; then
+            KPM_ROW="⚠️ 已选，FinaSU 不支持（将忽略）"
+          else
+            KPM_ROW="✅ 启用"
+          fi
+
+          VER_ROW="${{ inputs.version }}"
+          [ -n "$VER_ROW" ] || VER_ROW="默认"
+          TIME_ROW="${{ inputs.build_time }}"
+          [ -n "$TIME_ROW" ] || TIME_ROW="自动（当前北京时间）"
+
           {
-            echo "### 构建通道"
+            echo "## 📊 构建总结"
             echo ""
-            echo "- 选择通道：${{ inputs.build_channel }}"
-            echo "- 实际通道：${CHANNEL_KIND:-未知}（pin_mode=${PIN_MODE:-未知}）"
-            echo "- 管理器来源：${MANAGER_SOURCE:-ci}"
-            if [ "${MANAGER_SOURCE:-ci}" = "release" ]; then
-              echo "- Release 标签：${REL_TAG:-未知}"
-              echo "- 内核对齐提交：${REL_COMMIT:0:8}"
-            elif [ "${CHANNEL_KIND:-}" = "latest" ]; then
-              echo "- 内核锁定：上游默认分支 HEAD ${HEAD_SHA:0:8}（管理器按该版本匹配）"
-            else
-              echo "- 内核锁定：官方默认分支最新上传构建${MANAGER_HEAD_SHA:+ }${MANAGER_HEAD_SHA:0:8}"
-            fi
-            echo "- 管理器版本：${{ steps.add_KSU.outputs.managerVer }}"
+            echo "**$VARIANT** · 管理器 \`$MANAGER_VER\` · $CH_LABEL"
+            echo ""
+            echo "### ⚙️ 构建选项"
+            echo ""
+            echo "| 功能 | 选择 |"
+            echo "|:---|:---|"
+            echo "| SUSFS | $SUS_ROW |"
+            echo "| Droidspaces 容器 | $DS_ROW |"
+            echo "| ZRAM 压缩 | $(flag "${{ inputs.use_zram }}") |"
+            echo "| BBG 基带保护 | $(flag "${{ inputs.use_bbg }}") |"
+            echo "| 网络增强 | $(flag "${{ inputs.use_net_enhance }}") |"
+            echo "| Re-Kernel 驱动 | $(flag "${{ inputs.use_rekernel }}") |"
+            echo "| KPM | $KPM_ROW |"
+            echo "| NoMount 元模块 | $(flag "${{ inputs.use_nomount }}") |"
+            echo "| \`CVE-2026-43499\` 修复 | $(flag "${{ inputs.cve_2026_43499_patch }}") |"
+            echo "| 兼容跳过 | $(flag "${{ inputs.skip_incompatible }}") |"
+            echo "| 产物上传模式 | ${{ inputs.artifact_upload_mode }} |"
+            echo "| 自定义版本名 | ${VER_ROW} |"
+            echo "| 自定义构建时间 | ${TIME_ROW} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 上传APK
