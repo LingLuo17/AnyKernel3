@@ -977,13 +977,13 @@ jobs:
           while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
-          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" -print0 | \
-          while IFS= read -r -d '' f; do
-            gh release upload "$NEW_TAG" "$f" || true
-          done
-          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/nomount-*/*" -print0 | \
-          while IFS= read -r -d '' f; do
-            gh release upload "$NEW_TAG" "$f" || true
+          # 模块产物是解压后的模块内容，发版时重新打成可直接刷入的模块 zip（文件名取产物名）
+          for dir in ./downloaded-artifacts/susfs-* ./downloaded-artifacts/nomount-*; do
+            [ -d "$dir" ] || continue
+            MOD_ZIP="$PWD/downloaded-artifacts/$(basename "$dir").zip"
+            rm -f "$MOD_ZIP"
+            (cd "$dir" && zip -r -q -9 "$MOD_ZIP" .)
+            gh release upload "$NEW_TAG" "$MOD_ZIP" || true
           done
 
       # ==================== 上传内核产物 ====================

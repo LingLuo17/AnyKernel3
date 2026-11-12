@@ -768,13 +768,15 @@ jobs:
           fi
           echo "SUSFS_NAME=$TAG_NAME" >> $GITHUB_ENV
 
-          # Release 资产本身即完整模块 zip，校验完整性后直接放入模块目录
+          # 校验后解压到模块目录：产物下载即模块本身，不再套一层 zip
           if ! unzip -t "$NAME" >/dev/null 2>&1; then
             echo "下载的 SUSFS 模块 zip 损坏"
             exit 1
           fi
-          mkdir -p susfs-module
-          mv "$NAME" "susfs-module/$NAME"
+          rm -rf susfs-module && mkdir -p susfs-module
+          unzip -oq "$NAME" -d susfs-module
+          rm -f "$NAME"
+          [ -f susfs-module/module.prop ] || { echo "SUSFS 模块缺少 module.prop"; exit 1; }
           ls -la susfs-module/
 
       - name: 添加 NoMount 模块
@@ -816,8 +818,10 @@ jobs:
             echo "下载的 NoMount 模块 zip 损坏"
             exit 1
           fi
-          mkdir -p nomount-module
-          mv "$ASSET_NAME" "nomount-module/$ASSET_NAME"
+          rm -rf nomount-module && mkdir -p nomount-module
+          unzip -oq "$ASSET_NAME" -d nomount-module
+          rm -f "$ASSET_NAME"
+          [ -f nomount-module/module.prop ] || { echo "NoMount 模块缺少 module.prop"; exit 1; }
           ls -la nomount-module/
 
       - name: Notify on failure
@@ -911,11 +915,11 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: susfs-${{ env.SUSFS_NAME }}
-          path: ./susfs-module/*
+          path: ./susfs-module/
 
       - name: 上传NoMount模块
         if: inputs.use_nomount && steps.add_nomount.outcome == 'success'
         uses: actions/upload-artifact@v6
         with:
           name: nomount-${{ env.NOMOUNT_NAME }}
-          path: ./nomount-module/*
+          path: ./nomount-module/
