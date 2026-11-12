@@ -170,6 +170,8 @@ jobs:
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       build_channel: ${{ inputs.build_channel }}
+      cancel_susfs: ${{ inputs.cancel_susfs }}
+      use_nomount: ${{ inputs.use_nomount }}
 
   # ==================== Android 12 - 5.10 构建 ====================
   build-a12-5-10:
@@ -923,19 +925,25 @@ jobs:
           done
 
       # ==================== 上传管理器和模块 ====================
-      - name: 上传管理器和 SUSFS 模块
+      - name: 上传管理器和模块
         continue-on-error: true
         run: |
-          echo "准备上传 APK 与 SUSFS 模块..."
+          echo "准备上传 APK 与模块..."
           apk_count=$(find ./downloaded-artifacts -type f -name "*.apk" | wc -l || true)
           sus_count=$(find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" | wc -l || true)
+          nomount_count=$(find ./downloaded-artifacts -type f -path "./downloaded-artifacts/nomount-*/*" | wc -l || true)
           echo "APK files: ${apk_count}"
           echo "SUSFS files: ${sus_count}"
+          echo "NoMount files: ${nomount_count}"
           find ./downloaded-artifacts -type f -name "*.apk" -print0 | \
           while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
           find ./downloaded-artifacts -type f -path "./downloaded-artifacts/susfs-*/*" -print0 | \
+          while IFS= read -r -d '' f; do
+            gh release upload "$NEW_TAG" "$f" || true
+          done
+          find ./downloaded-artifacts -type f -path "./downloaded-artifacts/nomount-*/*" -print0 | \
           while IFS= read -r -d '' f; do
             gh release upload "$NEW_TAG" "$f" || true
           done
@@ -951,7 +959,7 @@ jobs:
             [ -d "$dir" ] || continue
             dir="${dir%/}"
             case "$dir/" in
-              *-Build-Logs/|*-Rejects/|*Manager*/|*susfs-*/) continue ;;
+              *-Build-Logs/|*-Rejects/|*Manager*/|*susfs-*/|*nomount-*/) continue ;;
             esac
             # 只处理内核刷入包：仅上传模式含 anykernel.sh，上传全部模式含 *-AnyKernel3.zip
             if [ ! -f "$dir/anykernel.sh" ] && ! ls "$dir"/*-AnyKernel3.zip >/dev/null 2>&1; then

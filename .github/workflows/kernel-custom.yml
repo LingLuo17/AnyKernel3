@@ -586,3 +586,5 @@ jobs:
     with:
       kernelsu_variant: ${{ inputs.kernelsu_variant }}
       build_channel: ${{ inputs.build_channel }}
+      cancel_susfs: ${{ inputs.cancel_susfs }}
+      use_nomount: ${{ inputs.use_nomount || false }}
