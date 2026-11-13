@@ -1649,6 +1649,17 @@ jobs:
             echo "CONFIG_KSU=y" >> "$DEFCONFIG"
           fi
 
+          # SukiSU main 分支把 KSU_SUSFS 的 Kconfig 默认值设为 y；未集成 SUSFS
+          # （android17-6.18 没有 SUSFS 分支，或选择了禁用 SUSFS、SUSFS 自动跳过）
+          # 时必须显式关闭，否则 kernel_includes.h 会引用不存在的 <linux/susfs.h>
+          # 导致编译失败。仅在 KernelSU 源码确实声明该选项时写入，避免 fragment 校验失败。
+          if [ "${{ inputs.ksu_variant }}" = "SukiSU" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ] \
+            && { [ "${{ inputs.enable_susfs }}" != "true" ] || [ "$SUSFS_SKIPPED" = "true" ]; }; then
+            if grep -qsE '^[[:space:]]*config[[:space:]]+KSU_SUSFS([[:space:]]|$)' KernelSU/kernel/Kconfig; then
+              echo "# CONFIG_KSU_SUSFS is not set" >> "$DEFCONFIG"
+            fi
+          fi
+
           # BakaSU 上游改名后 Kconfig 默认值去掉了 @%REPO_NAME%，显式加回模板，
           # 配合 ksu_post_setup.sh 的 REPO_NAME := LingLuo 改写，管理器才能显示 @LingLuo 后缀
           if [ "${{ inputs.ksu_variant }}" == "BakaSU" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ]; then
