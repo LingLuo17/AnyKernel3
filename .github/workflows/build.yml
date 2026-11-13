@@ -1630,6 +1630,20 @@ jobs:
           CONFIG_TMPFS_POSIX_ACL=y
           EOF
 
+          # 6.18 的厂商内核把 RFKILL / BT 核心直接编进 Image，system_dlkm 不再提供
+          # rfkill.ko / bluetooth.ko；本仓库只刷 Image，若沿用 AOSP gki_defconfig 的
+          # =m，厂商 cfg80211 / btmtk 模块会因缺少 rfkill_* / hci_* 符号而加载失败，
+          # 表现为 WiFi、蓝牙消失。改为内建，并从 GKI 模块清单移除对应 .ko 条目。
+          if [ "${{ inputs.kernel_version }}" = "6.18" ]; then
+            sed -i 's/^CONFIG_RFKILL=m$/CONFIG_RFKILL=y/; s/^CONFIG_BT=m$/CONFIG_BT=y/' "$DEFCONFIG"
+            grep -q '^CONFIG_RFKILL=y$' "$DEFCONFIG" || echo "CONFIG_RFKILL=y" >> "$DEFCONFIG"
+            grep -q '^CONFIG_BT=y$' "$DEFCONFIG" || echo "CONFIG_BT=y" >> "$DEFCONFIG"
+            for MODULE_LIST in common/modules.bzl common/bazel/modules.bzl common/bazel/modules_private.bzl; do
+              [ -f "$MODULE_LIST" ] || continue
+              sed -i '/"net\/rfkill\/rfkill\.ko",/d; /"net\/bluetooth\/bluetooth\.ko",/d' "$MODULE_LIST"
+            done
+          fi
+
           # 禁用 KSU 时源码里没有 KernelSU，CONFIG_KSU 会被 bazel defconfig 校验拒绝
           if [ "${{ inputs.ksu_mode }}" != "禁用KSU" ]; then
             echo "CONFIG_KSU=y" >> "$DEFCONFIG"
