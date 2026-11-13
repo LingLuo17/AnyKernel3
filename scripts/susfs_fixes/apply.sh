@@ -282,18 +282,6 @@ if [[ "$ANDROID_VERSION" == "android16" && "$KERNEL_VERSION" == "6.12" ]]; then
   normalize_exec_include_hunk
 fi
 
-# 新版内核在 super.c 的 internal.h 之后新增了 trace/hooks/fs.h，
-# 旧版 SUSFS 主补丁以 thaw_super_locked 为上下文插入 extern 声明，会整段被拒绝；
-# 上游 2026-09-15 起已把声明挪到 unnamed_dev_ida 之后，不再依赖这段上下文，
-# 但 ShirkNeko fork 尚未同步（固定提交的旧版补丁不改 super.c），只对旧版补丁做临时调整
-SUPER_FS_H_REMOVED=""
-if grep -q '^ static int thaw_super_locked' "$SUSFS_PATCH" \
-  && grep -qF '#include <trace/hooks/fs.h>' fs/super.c; then
-  echo "临时调整 super.c 上下文"
-  sed -i '/^#include <trace\/hooks\/fs.h>$/,+1d' fs/super.c
-  SUPER_FS_H_REMOVED=1
-fi
-
 # 上游 rebase 到 5.15.211 后，susfs_def.h 的插入 hunk 把 trace/hooks 头文件
 # 当成了上下文：5.15.74~194 源码没有这些行，hunk 会整段被拒，最终因
 # SUSFS_IS_INODE_* 隐式声明在 clang -Werror 处中断。按源码实际内容归一化补丁副本。
@@ -664,14 +652,6 @@ if [[ -f fs/statfs.c ]] && grep -qF 'susfs_sus_kstat_spoof_vfs_statfs(' fs/statf
   sed -i '/^#endif \/\/ #ifndef KSU_SUSFS_DEF_H$/i struct inode;\nstruct kstatfs;\nextern int susfs_sus_kstat_spoof_vfs_statfs(struct inode *inode, struct kstatfs *buf, bool *is_fuse);' "$SUSFS_DEF_H"
 fi
 
-# 上游 susfs.c 直接调用 security_sb_statfs 却没有包含 linux/security.h，
-# 5.15+ 靠其他头文件间接带入，5.10 没有这条路径，clang -Werror 报隐式声明；缺失时补上
-if [[ -f fs/susfs.c ]] && grep -qF 'security_sb_statfs(' fs/susfs.c \
-  && ! grep -qF '#include <linux/security.h>' fs/susfs.c; then
-  echo "为 susfs.c 补充 linux/security.h 头文件"
-  sed -i '0,/^#include <linux\/fs.h>$/s//#include <linux\/fs.h>\n#include <linux\/security.h>/' fs/susfs.c
-fi
-
 # 在编译前报告 SUSFS 主补丁产生的冲突文件，上游自带的已提交 .rej 不计入
 mapfile -t SUSFS_REJ_FILES < <(list_untracked_rej)
 SUSFS_REJ_COUNT=${#SUSFS_REJ_FILES[@]}
@@ -740,12 +720,6 @@ if [[ "$ANDROID_VERSION" == "android15" && "$KERNEL_VERSION" == "6.6" ]]; then
     echo "还原 Android 15 6.6 memory.c 临时调整"
     sed -i '/^#include <linux\/zswap.h>$/d' mm/memory.c
   fi
-fi
-
-if [[ -n "$SUPER_FS_H_REMOVED" ]] \
-  && ! grep -qF '#include <trace/hooks/fs.h>' fs/super.c; then
-  echo "还原 super.c 临时调整"
-  sed -i '/^#include "internal.h"$/a #include <trace/hooks/fs.h>' fs/super.c
 fi
 
 fix_missing_vm_flags_clear() {
