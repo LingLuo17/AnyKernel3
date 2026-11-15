@@ -1630,9 +1630,34 @@ jobs:
           CONFIG_TMPFS_POSIX_ACL=y
           EOF
 
+          # 6.18 的厂商内核把 RFKILL / BT 核心直接编进 Image，system_dlkm 不再提供
+          # rfkill.ko / bluetooth.ko；本仓库只刷 Image，若沿用 AOSP gki_defconfig 的
+          # =m，厂商 cfg80211 / btmtk 模块会因缺少 rfkill_* / hci_* 符号而加载失败，
+          # 表现为 WiFi、蓝牙消失。改为内建，并从 GKI 模块清单移除对应 .ko 条目。
+          if [ "${{ inputs.kernel_version }}" = "6.18" ]; then
+            sed -i 's/^CONFIG_RFKILL=m$/CONFIG_RFKILL=y/; s/^CONFIG_BT=m$/CONFIG_BT=y/' "$DEFCONFIG"
+            grep -q '^CONFIG_RFKILL=y$' "$DEFCONFIG" || echo "CONFIG_RFKILL=y" >> "$DEFCONFIG"
+            grep -q '^CONFIG_BT=y$' "$DEFCONFIG" || echo "CONFIG_BT=y" >> "$DEFCONFIG"
+            for MODULE_LIST in common/modules.bzl common/bazel/modules.bzl common/bazel/modules_private.bzl; do
+              [ -f "$MODULE_LIST" ] || continue
+              sed -i '/"net\/rfkill\/rfkill\.ko",/d; /"net\/bluetooth\/bluetooth\.ko",/d' "$MODULE_LIST"
+            done
+          fi
+
           # 禁用 KSU 时源码里没有 KernelSU，CONFIG_KSU 会被 bazel defconfig 校验拒绝
           if [ "${{ inputs.ksu_mode }}" != "禁用KSU" ]; then
             echo "CONFIG_KSU=y" >> "$DEFCONFIG"
+          fi
+
+          # SukiSU main 分支把 KSU_SUSFS 的 Kconfig 默认值设为 y；未集成 SUSFS
+          # （android17-6.18 没有 SUSFS 分支，或选择了禁用 SUSFS、SUSFS 自动跳过）
+          # 时必须显式关闭，否则 kernel_includes.h 会引用不存在的 <linux/susfs.h>
+          # 导致编译失败。仅在 KernelSU 源码确实声明该选项时写入，避免 fragment 校验失败。
+          if [ "${{ inputs.ksu_variant }}" = "SukiSU" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ] \
+            && { [ "${{ inputs.enable_susfs }}" != "true" ] || [ "$SUSFS_SKIPPED" = "true" ]; }; then
+            if grep -qsE '^[[:space:]]*config[[:space:]]+KSU_SUSFS([[:space:]]|$)' KernelSU/kernel/Kconfig; then
+              echo "# CONFIG_KSU_SUSFS is not set" >> "$DEFCONFIG"
+            fi
           fi
 
           # BakaSU 上游改名后 Kconfig 默认值去掉了 @%REPO_NAME%，显式加回模板，
@@ -1722,6 +1747,11 @@ jobs:
             sed -i 's/-dirty//' ./common/scripts/setlocalversion
           else
             sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
+            # 6.12/6.18 用 protected_module_names_list 生成"受保护符号导出"清单。本仓库内核
+            # 用构建时生成的密钥签名，官方 system_dlkm 里的模块（Google 密钥签名）会被当作
+            # 未签名模块，导出 rfkill_*/hci_* 等受保护符号时直接被拒绝加载（exports
+            # protected symbol），表现为 WiFi/蓝牙消失。移除该属性即可关闭导出侧校验。
+            sed -i '/^[[:space:]]*protected_module_names_list[[:space:]]*=[[:space:]]*":gki_[a-z0-9_]*_protected_module_names",$/d' ./common/BUILD.bazel
             # kmi_symbol_list_strict_mode 在 android17-6.18 是多行 select({...})，
             # 整行 sed 只删首行会留下残缺字典导致 BUILD.bazel 语法错误，
             # 改用脚本按属性/字典条目/select 块三种形态完整移除
