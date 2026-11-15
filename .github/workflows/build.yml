@@ -1747,6 +1747,11 @@ jobs:
             sed -i 's/-dirty//' ./common/scripts/setlocalversion
           else
             sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
+            # 6.12/6.18 用 protected_module_names_list 生成"受保护符号导出"清单。本仓库内核
+            # 用构建时生成的密钥签名，官方 system_dlkm 里的模块（Google 密钥签名）会被当作
+            # 未签名模块，导出 rfkill_*/hci_* 等受保护符号时直接被拒绝加载（exports
+            # protected symbol），表现为 WiFi/蓝牙消失。移除该属性即可关闭导出侧校验。
+            sed -i '/^[[:space:]]*protected_module_names_list[[:space:]]*=[[:space:]]*":gki_[a-z0-9_]*_protected_module_names",$/d' ./common/BUILD.bazel
             # kmi_symbol_list_strict_mode 在 android17-6.18 是多行 select({...})，
             # 整行 sed 只删首行会留下残缺字典导致 BUILD.bazel 语法错误，
             # 改用脚本按属性/字典条目/select 块三种形态完整移除
