@@ -12,12 +12,12 @@ on:
         required: true
         type: choice
         options:
-          - SukiSU
+          - SukiSU-Nova
           - BakaSU
           - FinaSU
         default: FinaSU
       build_channel:
-        description: "构建通道（正式=官方 Release 发行版，最新=上游最新提交）"
+        description: "构建管理器通道"
         required: false
         type: choice
         options:
@@ -25,7 +25,7 @@ on:
           - "最新 (HEAD)"
         default: "正式 (Release)"
       version:
-        description: "自定义版本名 (可选)"
+        description: "自定义内核版本名"
         required: false
         type: string
       build_time:
@@ -34,7 +34,7 @@ on:
         type: string
         default: ""
       use_kpm:
-        description: "KPM 功能（仅SukiSU支持，开启未修补）"
+        description: "KPM 功能（仅SukiSU-Nova支持，开启未修补）"
         required: true
         type: boolean
         default: false

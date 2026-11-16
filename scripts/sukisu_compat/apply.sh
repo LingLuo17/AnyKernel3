@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SukiSU 内核源码 API 兼容补丁（SukiSU-Ultra builtin / main 分支均适用）
+# SukiSU-Nova 内核源码 API 兼容补丁（SukiSU-Nova builtin / main 分支均适用）
 #
 # 背景：
 #   1) builtin 分支 kernel/hook/lsm_hook.c 仍以旧签名
@@ -31,10 +31,10 @@ KSU_DIR="${1:-KernelSU}"
 
 fail() {
   if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-    echo "::warning title=SukiSU 兼容补丁已跳过::$1"
+    echo "::warning title=SukiSU-Nova 兼容补丁已跳过::$1"
     if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
       echo "" >> "$GITHUB_STEP_SUMMARY"
-      echo "> ⏭️ **SukiSU API 兼容补丁** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+      echo "> ⏭️ **SukiSU-Nova API 兼容补丁** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
     fi
     exit 0
   fi
@@ -53,7 +53,7 @@ if [ -f "$LSM_FILE" ] && grep -q 'security_add_hooks(ksu_hooks, ARRAY_SIZE(ksu_h
   else
     echo "应用 lsm_id 兼容补丁 (6.8+ security_add_hooks 新签名)..."
     patch -p1 --forward -d "$KSU_DIR" < "$COMPAT_DIR/sukisu-lsm-id-6.8.patch" \
-      || fail "lsm_id 兼容补丁应用失败（SukiSU 上游代码可能已变化）"
+      || fail "lsm_id 兼容补丁应用失败（SukiSU-Nova 上游代码可能已变化）"
     grep -q 'struct lsm_id ksu_lsm_id' "$LSM_FILE" \
       || fail "lsm_id 兼容补丁应用后校验失败"
     echo "lsm_hook.c: 6.8+ 已切换为 struct lsm_id 注册"
@@ -78,13 +78,13 @@ if [ -f "$LSM_FILE" ] && grep -q 'handle_zygote_setresuid' "$LSM_FILE"; then
     echo "lsm_hook.c 已包含 seccomp 过滤模式逻辑，跳过"
   else
     echo "应用 seccomp 过滤模式补丁 (对齐 main 分支/BakaSU：管理器与授权应用保留 seccomp 过滤器)..."
-    [ -d "$KSU_DIR/kernel/infra" ] || fail "未找到 $KSU_DIR/kernel/infra 目录，SukiSU builtin 结构可能已变化"
+    [ -d "$KSU_DIR/kernel/infra" ] || fail "未找到 $KSU_DIR/kernel/infra 目录，SukiSU-Nova builtin 结构可能已变化"
     cp "$COMPAT_DIR/seccomp_cache.h" "$KSU_DIR/kernel/infra/seccomp_cache.h" \
       || fail "seccomp_cache.h 分发失败"
     cp "$COMPAT_DIR/seccomp_cache.c" "$KSU_DIR/kernel/infra/seccomp_cache.c" \
       || fail "seccomp_cache.c 分发失败"
     python3 "$COMPAT_DIR/seccomp_filter_mode.py" "$KSU_DIR" \
-      || fail "seccomp 过滤模式补丁应用失败（SukiSU builtin 上游代码可能已变化）"
+      || fail "seccomp 过滤模式补丁应用失败（SukiSU-Nova builtin 上游代码可能已变化）"
     grep -q 'ksu_seccomp_allow_cache' "$LSM_FILE" \
       || fail "seccomp 过滤模式补丁应用后校验失败 (lsm_hook.c)"
     # 聚合编译文件随上游重构更名（kernel/ksu.c -> kernel/ksu_main.c），按实际路径校验
@@ -111,7 +111,7 @@ fi
 # 构建开启 -Werror,-Wimplicit-fallthrough 时会直接报错。改用内核
 # fallthrough 宏（展开为 __attribute__((__fallthrough__))），上游修复后自动跳过。
 if grep -rqF '/* fall through */' "$KSU_DIR/kernel" 2>/dev/null; then
-  echo "修正 SukiSU 源码的注释式 fall-through（bazel -Werror 兼容）..."
+  echo "修正 SukiSU-Nova 源码的注释式 fall-through（bazel -Werror 兼容）..."
   python3 - "$KSU_DIR" <<'PYEOF'
 import pathlib
 import sys
@@ -133,7 +133,7 @@ PYEOF
   fi
   echo "fall-through 注解修正完成"
 else
-  echo "SukiSU 源码无注释式 fall-through，跳过"
+  echo "SukiSU-Nova 源码无注释式 fall-through，跳过"
 fi
 
 # ---- 6.12+ LSM 静态调用槽位（builtin 分支）----
@@ -205,4 +205,4 @@ else
   echo "内核无 lsm_count.h 或 KSU 未用 security_add_hooks，跳过 LSM 槽位预留"
 fi
 
-echo "SukiSU API 兼容补丁处理完成"
+echo "SukiSU-Nova API 兼容补丁处理完成"

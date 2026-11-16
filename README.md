@@ -2,12 +2,12 @@
 
 # GKI KernelSU SUSFS
 
-**Automated GKI Kernel Builds | SukiSU / BakaSU / FinaSU + SUSFS Integration**
+**Automated GKI Kernel Builds | SukiSU-Nova / BakaSU / FinaSU + SUSFS Integration**
 
 [![Release](https://img.shields.io/github/v/release/LingLuo17/AnyKernel3?label=Release&style=flat-square&logo=github&logoColor=white&color=2ea44f)](https://github.com/LingLuo17/AnyKernel3/releases)
 [![Coolapk](https://img.shields.io/badge/Follow-Coolapk-3DDC84?style=flat-square&logo=android&logoColor=white)](http://www.coolapk.com/u/38407386)
 [<img src="https://img.shields.io/badge/Join-QQ%20Group-blue?style=flat-square&logo=github&logoColor=white">](https://qm.qq.com/q/PZIFvlcbqU)
-[![SukiSU](https://img.shields.io/badge/SukiSU-Supported-5AA300?style=flat-square)](https://sukisu.org/)
+[![SukiSU-Nova](https://img.shields.io/badge/SukiSU--Nova-Supported-5AA300?style=flat-square)](https://github.com/SukiSU-Nova/SukiSU-Nova)
 [![BakaSU](https://img.shields.io/badge/BakaSU-Supported-5AA300?style=flat-square)](https://bakasu.org/)
 [![FinaSU](https://img.shields.io/badge/FinaSU-Supported-5AA300?style=flat-square)](https://github.com/LyraVoid/FinaSU)
 [![SUSFS](https://img.shields.io/badge/SUSFS-Integrated-E67E22?style=flat-square)](https://gitlab.com/simonpunk/susfs4ksu)
@@ -41,15 +41,15 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 
 | Feature | Description |
 |:---|:---|
-| 🔐 KernelSU Variants | Supports SukiSU / BakaSU / FinaSU variants, selectable at build time |
-| 🔀 Build Channel | Release: latest **stable** upstream Release (tag commit + same-version manager), falls back to the newest official default-branch build when the upstream only ships pre-releases; Latest: pins the default-branch HEAD and picks the newest manager build matching that version |
+| 🔐 KernelSU Variants | Supports SukiSU-Nova / BakaSU / FinaSU variants, selectable at build time |
+| 🔀 Manager Channel | Release: latest **stable** upstream Release (tag commit + same-version manager), falls back to the newest official default-branch build when the upstream only ships pre-releases; Latest: pins the default-branch HEAD and picks the newest manager build matching that version |
 | 🙈 SUSFS | Kernel-level hiding working with KSU to complete environment spoofing |
 | 💾 ZRAM LZ4 | ZRAM Compression Algorithm Patch |
 | 🛡️ BBG (Baseband Guard) | BBG patch to protect the baseband partitions from accidental wipe |
 | 🌐 Network enhancement | Optional network stack upgrade: BBRv3 backport where available (defaults to BBR v1 otherwise), full IPSet types up to 65534 sets, fq/fq_codel/cake qdisc, connmark, IPv6 NAT/masquerade, TTL/HopLimit match, WireGuard, CIFS |
 | 🔔 Re-Kernel | Optional Re-Kernel driver integration |
 | 🧷 NoMount | Optional [NoMount](https://github.com/maxsteeel/nomount) mount metamodule integration (needs the matching module flashed) |
-| ⚡ KPM | Optional KPM feature (SukiSU only, build-time patching handled by the manager) |
+| ⚡ KPM | Optional KPM feature (SukiSU-Nova only, build-time patching handled by the manager) |
 | 🩹 CVE-2026-43499 | Optional automatic application of the rtmutex fix |
 | 📱 OnePlus Snapdragon 8 Elite / Gen5 Support | Optional: Add support for OnePlus Snapdragon 8 Elite / Gen5 processor |
 | 🐳 Droidspaces | Optional container support with NTSync kernel compatibility patch |
@@ -61,10 +61,10 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 2. Go to the **Actions** page and pick the workflow for your kernel version
 3. Click **Run workflow** and fill in the parameters as needed:
    - `android_version` / `kernel_version` / `sub_level` / `os_patch_level`
-   - `ksu_variant`: KernelSU variant (SukiSU / BakaSU / FinaSU)
-   - `build_channel`: build channel
+   - `ksu_variant`: KernelSU variant (SukiSU-Nova / BakaSU / FinaSU)
+   - `build_channel`: manager channel
      - `正式 (Release)`: manager APK taken from the latest **stable** upstream Release (`prerelease=false`) and the kernel pinned to that release tag commit, so manager and kernel versions match exactly; when the upstream only ships rc/pre-releases (e.g. BakaSU), the newest official default-branch build is used and pinned instead
-     - `最新 (HEAD)`: kernel pinned to the default-branch HEAD, and the manager is the newest build whose version matches HEAD (any branch; SukiSU / BakaSU use official CI builds, FinaSU uses the latest Release), so kernel and manager never drift apart
+     - `最新 (HEAD)`: kernel pinned to the default-branch HEAD, and the manager is the newest build whose version matches HEAD (any branch; SukiSU-Nova / BakaSU use official CI builds, FinaSU uses the latest Release), so kernel and manager never drift apart
      - Both channels print the selected channel, pinned commit and manager version in the logs and the run summary
    - Feature switches: `enable_susfs`, `use_zram`, `use_bbg`, `use_net_enhance`, `use_kpm`, `skip_incompatible`, etc.
 4. Once the build finishes, download the **Artifacts** from the run page:
@@ -75,21 +75,21 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 
 ## 🔧 Custom Commit Configuration
 
-The [`config/config`](config/config) file lets you pin specific commits for SUSFS and SukiSU.
+The [`config/config`](config/config) file lets you pin specific commits for SUSFS and SukiSU-Nova.
 
 **What is a commit?**
 
-A commit is a hash string representing the state of a repository at a certain point in time. For example, setting SukiSU to `4b8644515fe6d87a109129e590ccd9d33a855dca` means the kernel will be built with the SukiSU version from January 30.
+A commit is a hash string representing the state of a repository at a certain point in time. For example, setting SukiSU-Nova to `4b8644515fe6d87a109129e590ccd9d33a855dca` means the kernel will be built with the SukiSU-Nova version from January 30.
 
 **Why pin a commit?**
 
 - Roll back to a stable version when upstream updates introduce bugs or compatibility issues
-- Manually specify a compatible version when SUSFS and SukiSU are out of sync and the build fails
+- Manually specify a compatible version when SUSFS and SukiSU-Nova are out of sync and the build fails
 
 **How to get a commit hash?**
 
 - SUSFS: [susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu) (GitLab → Repository → Commits)
-- SukiSU: [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/commits) (GitHub commit history page)
+- SukiSU-Nova: [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) (GitHub commit history page)
 
 ## 🛠️ Recommended After Installation
 ### 🔧 Xposed Modules
@@ -101,7 +101,7 @@ A commit is a hash string representing the state of a repository at a certain po
 
 - [osm0sis/AnyKernel3](https://github.com/osm0sis/AnyKernel3)
 - [zzh20188/GKI_KernelSU_SUSFS](https://github.com/zzh20188/GKI_KernelSU_SUSFS) / [WildKernels/GKI_KernelSU_SUSFS](https://github.com/WildKernels/GKI_KernelSU_SUSFS)
-- [SukiSU](https://sukisu.org/) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
+- [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
 - [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
 
 <div align="center">
@@ -134,7 +134,7 @@ A commit is a hash string representing the state of a repository at a certain po
 
 # GKI KernelSU SUSFS
 
-**自动化构建 GKI 内核 | 集成 SukiSU/BakaSU/FinaSU + SUSFS**
+**自动化构建 GKI 内核 | 集成 SukiSU-Nova/BakaSU/FinaSU + SUSFS**
 
 [English](#gki-kernelsu-susfs) | **简体中文**
 
@@ -165,15 +165,15 @@ A commit is a hash string representing the state of a repository at a certain po
 
 | 特性 | 说明 |
 |:---|:---|
-| 🔐 KernelSU 变体 | 支持 SukiSU / BakaSU / FinaSU 变体，构建时按需选择 |
-| 🔀 构建通道 | 正式：上游最新**正式版** Release（标签提交 + 同版本管理器），上游只有预发布版时改用官方默认分支最新上传构建；最新：锁定默认分支 HEAD，管理器取与 HEAD 版本一致的最新构建 |
+| 🔐 KernelSU 变体 | 支持 SukiSU-Nova / BakaSU / FinaSU 变体，构建时按需选择 |
+| 🔀 构建管理器通道 | 正式：上游最新**正式版** Release（标签提交 + 同版本管理器），上游只有预发布版时改用官方默认分支最新上传构建；最新：锁定默认分支 HEAD，管理器取与 HEAD 版本一致的最新构建 |
 | 🙈 SUSFS | 内核级隐藏，配合 KSU 完成环境伪装 |
 | 💾 ZRAM LZ4 | ZRAM 压缩算法补丁 |
 | 🛡️ BBG 基带保护 | BBG（BaseBand Guard）补丁，保护基带分区，防止基带被意外擦除 |
 | 🌐 网络增强 | 可选网络栈增强：可用版本回移 BBRv3（无 backport 时退回 BBR v1）+ IPSet 全类型（集合上限 65534）+ fq/fq_codel/cake 队列 + connmark + IPv6 NAT/伪装 + TTL/HopLimit 匹配 + WireGuard + CIFS |
 | 🔔 Re-Kernel | 可选集成 Re-Kernel 驱动 |
 | 🧷 NoMount | 可选 [NoMount](https://github.com/maxsteeel/nomount) 挂载元模块集成（需自行刷入配套模块） |
-| ⚡ KPM | 可选开启 KPM 功能（仅 SukiSU 支持，修补由管理器侧完成） |
+| ⚡ KPM | 可选开启 KPM 功能（仅 SukiSU-Nova 支持，修补由管理器侧完成） |
 | 🩹 CVE-2026-43499 | 可选自动应用 rtmutex 修复补丁 |
 | 📱 一加 骁龙8 Elite/Gen5 支持 | 可选添加一加 骁龙8 Elite/Gen5 处理器支持 |
 | 🐳 Droidspaces | 可选容器支持及 NTSync 内核兼容补丁 |
@@ -185,10 +185,10 @@ A commit is a hash string representing the state of a repository at a certain po
 2. 进入 **Actions** 页面，选择对应内核版本的工作流
 3. 点击 **Run workflow**，按需填写参数：
    - `android_version` / `kernel_version` / `sub_level` / `os_patch_level`
-   - `ksu_variant`：KernelSU 变体（SukiSU / BakaSU / FinaSU）
-   - `build_channel`：构建通道
+   - `ksu_variant`：KernelSU 变体（SukiSU-Nova / BakaSU / FinaSU）
+   - `build_channel`：构建管理器通道
      - `正式 (Release)`：使用上游最新**正式版** Release（`prerelease=false`）的管理器 APK，内核检出该 Release 标签的同一提交，版本严格一致；上游只有 rc/预发布版时（如 BakaSU），改用官方默认分支最新上传构建并锁定该提交
-     - `最新 (HEAD)`：内核锁定默认分支 HEAD，管理器取与 HEAD 版本号一致的最新构建（不限分支，SukiSU / BakaSU 用官方 CI 构建，FinaSU 用最新 Release），避免内核与管理器版本错位
+     - `最新 (HEAD)`：内核锁定默认分支 HEAD，管理器取与 HEAD 版本号一致的最新构建（不限分支，SukiSU-Nova / BakaSU 用官方 CI 构建，FinaSU 用最新 Release），避免内核与管理器版本错位
      - 两个通道的日志与运行摘要（Summary）都会打印实际选用的通道、提交与管理器版本
    - 功能开关：`enable_susfs`、`use_zram`、`use_bbg`、`use_net_enhance`、`use_kpm`、`skip_incompatible` 等 
 4. 构建完成后，在本次运行页面下载 **Artifacts**：
@@ -199,21 +199,21 @@ A commit is a hash string representing the state of a repository at a certain po
 
 ## 🔧 自定义提交配置
 
-通过 [`config/config`](config/config) 文件可以指定 SUSFS 和 SukiSU 使用特定的 commit。
+通过 [`config/config`](config/config) 文件可以指定 SUSFS 和 SukiSU-Nova 使用特定的 commit。
 
 **什么是提交 (commit)？**
 
-提交是一串哈希字符串，代表仓库在某个时间点的状态。例如将 SukiSU 设为 `4b8644515fe6d87a109129e590ccd9d33a855dca`，即使用 1 月 30 日的 SukiSU 版本编译内核。
+提交是一串哈希字符串，代表仓库在某个时间点的状态。例如将 SukiSU-Nova 设为 `4b8644515fe6d87a109129e590ccd9d33a855dca`，即使用 1 月 30 日的 SukiSU-Nova 版本编译内核。
 
 **为什么要指定提交？**
 
 - 当上游仓库更新引入 bug 或兼容性问题时，可回退到稳定版本
-- 当 SUSFS 与 SukiSU 版本不同步导致编译失败时，可手动指定兼容的版本
+- 当 SUSFS 与 SukiSU-Nova 版本不同步导致编译失败时，可手动指定兼容的版本
 
 **如何获取提交哈希？**
 
 - SUSFS：[susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu)（GitLab → Repository → Commits）
-- SukiSU：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/commits)（GitHub 提交历史页面）
+- SukiSU-Nova：[SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova)（GitHub 提交历史页面）
 
 ## 🛠️ 安装后推荐
 ### 🔧 Xposed 模块
@@ -226,7 +226,7 @@ A commit is a hash string representing the state of a repository at a certain po
 
 - [osm0sis/AnyKernel3](https://github.com/osm0sis/AnyKernel3)
 - [zzh20188/GKI_KernelSU_SUSFS](https://github.com/zzh20188/GKI_KernelSU_SUSFS) / [WildKernels/GKI_KernelSU_SUSFS](https://github.com/WildKernels/GKI_KernelSU_SUSFS)
-- [SukiSU](https://sukisu.org/) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
+- [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
 - [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
 
 <div align="center">

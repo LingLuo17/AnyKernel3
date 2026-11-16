@@ -3,7 +3,7 @@
 """builtin 分支 seccomp 过滤模式改造脚本。
 
 背景:
-  SukiSU-Ultra builtin 分支在 app 启动路径 (zygote setresuid 钩子,
+  SukiSU-Nova builtin 分支在 app 启动路径 (zygote setresuid 钩子,
   kernel/hook/lsm_hook.c) 对管理器与授权应用直接调用 disable_seccomp(),
   导致管理器进程自身的 seccomp 过滤器被清除, 管理器首页
   "Seccomp 状态" 显示"未启用"。main 分支 / BakaSU 的对应实现是:
@@ -70,7 +70,7 @@ def patch_lsm(path: Path) -> None:
         text, n = pattern.subn(lambda m: m.group(1) + CACHE_BLOCK, text)
         if n != expected:
             sys.exit(f"::error::lsm_hook.c {name} 命中 {n} 处 (预期 {expected})，"
-                     f"SukiSU builtin 上游代码可能已变化，请更新补丁")
+                     f"SukiSU-Nova builtin 上游代码可能已变化，请更新补丁")
         total += n
     if '#include "infra/seccomp_cache.h"' not in text:
         text = '#include "infra/seccomp_cache.h"\n\n' + text
@@ -87,7 +87,7 @@ def patch_ksu(path: Path) -> None:
         lambda m: m.group(1) + '#include "infra/seccomp_cache.c"\n', text)
     if n != 1:
         sys.exit(f"::error::{path.name} 未找到 infra/event_queue.c 聚合锚点，"
-                 "SukiSU builtin 上游代码可能已变化，请更新补丁")
+                 "SukiSU-Nova builtin 上游代码可能已变化，请更新补丁")
     path.write_text(text, encoding="utf-8")
     print(f"{path.name}: 已插入 infra/seccomp_cache.c 聚合编译")
 
@@ -109,7 +109,7 @@ def main() -> None:
     ksu = find_aggregate(kdir)
     if not lsm.is_file() or ksu is None:
         sys.exit(f"::error::未找到 {lsm} 或 kernel/{{ksu,ksu_main}}.c，"
-                 "SukiSU builtin 目录结构可能已变化")
+                 "SukiSU-Nova builtin 目录结构可能已变化")
     patch_lsm(lsm)
     patch_ksu(ksu)
 

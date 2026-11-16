@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SukiSU builtin 分支内核 UAPI 动态同步（对齐官方 main 分支管理器）
+# SukiSU-Nova builtin 分支内核 UAPI 动态同步（对齐官方 main 分支管理器）
 #
 # 背景：
 #   builtin 分支（内建+SUSFS 产品线）与官方 main 分支相互独立，
@@ -27,10 +27,10 @@ KSU_DIR="${1:-KernelSU}"
 
 fail() {
   if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-    echo "::warning title=SukiSU UAPI 同步已跳过::$1"
+    echo "::warning title=SukiSU-Nova UAPI 同步已跳过::$1"
     if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
       echo "" >> "$GITHUB_STEP_SUMMARY"
-      echo "> ⏭️ **SukiSU UAPI 同步** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
+      echo "> ⏭️ **SukiSU-Nova UAPI 同步** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
     fi
     exit 0
   fi
@@ -50,14 +50,14 @@ for f in "$KSU_DIR/kernel/include/uapi/supercall.h" "$KSU_DIR/uapi/supercall.h";
     break
   fi
 done
-[ -n "$UAPI_FILE" ] || fail "未找到 supercall.h，SukiSU 源码布局可能已变化"
+[ -n "$UAPI_FILE" ] || fail "未找到 supercall.h，SukiSU-Nova 源码布局可能已变化"
 
 read_uapi() {
   grep -ohE 'KERNEL_SU_UAPI_VERSION[^0-9]*[0-9]+' "$1" | grep -oE '[0-9]+' | tail -n 1
 }
 
 # 取官方 main 的 supercall.h（web 布局，UAPI 定义以 static const 发布）
-MAIN_URL="https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/uapi/supercall.h"
+MAIN_URL="https://raw.githubusercontent.com/SukiSU-Nova/SukiSU-Nova/main/uapi/supercall.h"
 MAIN_FILE=$(mktemp)
 MAIN_JSON=""
 for ATTEMPT in 1 2 3; do
@@ -137,7 +137,7 @@ if not anchor:
     sys.exit(1)
 pos = anchor.end()
 
-block = "\n// synced from SukiSU-Ultra main uapi/supercall.h (dynamic UAPI sync)\n"
+block = "\n// synced from SukiSU-Nova main uapi/supercall.h (dynamic UAPI sync)\n"
 # struct 先插（同名的 _IOW 常量在插入块里引用它们）
 for sname, text in missing_structs:
     block += text + "\n"
@@ -218,7 +218,7 @@ if '#include "infra/symbol_resolver.h"' not in s and '#include "infra/symbol_res
 # 2) do_lookup_symbols 处理器：插在 do_disable_escape_to_root 定义前
 handler = '''/*
  * Batch resolve kernel image symbols (exported or not) for userspace
- * module symbol binding, ported from SukiSU-Ultra main (UAPI 6).
+ * module symbol binding, ported from SukiSU-Nova main (UAPI 6).
  */
 static int do_lookup_symbols(void __user *arg)
 {

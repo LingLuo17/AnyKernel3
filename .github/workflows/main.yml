@@ -37,13 +37,13 @@ on:
         description: "KernelSU 变体"
         type: choice
         options:
-          - SukiSU
+          - SukiSU-Nova
           - BakaSU
           - FinaSU
         default: FinaSU
 
       build_channel:
-        description: "构建通道（正式=官方 Release 发行版，最新=上游最新提交）"
+        description: "构建管理器通道"
         type: choice
         options:
           - "正式 (Release)"
@@ -52,7 +52,7 @@ on:
 
       # ==================== 可选配置 ====================
       version:
-        description: "自定义版本名 (可选)"
+        description: "自定义内核版本名"
         type: string
         default: ""
         required: false
@@ -63,7 +63,7 @@ on:
         required: false
       # ==================== 选项配置 ====================
       use_kpm:
-        description: "KPM 功能（仅SukiSU支持，开启未修补）"
+        description: "KPM 功能（仅SukiSU-Nova支持，开启未修补）"
         type: boolean
         default: false
       droidspaces:
@@ -577,7 +577,7 @@ jobs:
         run: |
           # KSU 显示名称
           case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU")    KSU_NAME="SukiSU" ;;
+            "SukiSU-Nova")    KSU_NAME="SukiSU-Nova" ;;
             "BakaSU")  KSU_NAME="BakaSU" ;;
             "FinaSU")  KSU_NAME="FinaSU" ;;
           esac
@@ -681,7 +681,7 @@ jobs:
         if: inputs.ksu_mode != '禁用KSU'
         run: |
           case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU")
+            "SukiSU-Nova")
               if [ "${{ inputs.ksu_mode }}" = "关闭" ]; then
                 BRANCH="builtin"
               else
@@ -700,12 +700,12 @@ jobs:
       - name: 获取 KernelSU 提交信息
         run: |
           case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU") REPO_URL="https://github.com/SukiSU-Ultra/SukiSU-Ultra.git"; REPO_URL2="SukiSU-Ultra/SukiSU-Ultra" ;;
+            "SukiSU-Nova") REPO_URL="https://github.com/SukiSU-Nova/SukiSU-Nova.git"; REPO_URL2="SukiSU-Nova/SukiSU-Nova" ;;
             "BakaSU") REPO_URL="https://github.com/Baka-SU/BakaSU.git"; REPO_URL2="Baka-SU/BakaSU" ;;
             "FinaSU") REPO_URL="https://github.com/LyraVoid/FinaSU.git"; REPO_URL2="LyraVoid/FinaSU" ;;
           esac
 
-          if [ "${{ inputs.kernelsu_variant }}" = "SukiSU" ] && [ -f "config/config" ]; then
+          if [ "${{ inputs.kernelsu_variant }}" = "SukiSU-Nova" ] && [ -f "config/config" ]; then
             CUSTOM_ENABLED=$(grep "^custom=" config/config | cut -d'=' -f2)
             CUSTOM_COMMIT=$(grep "^sukisu=" config/config | cut -d'=' -f2)
             if [ "$CUSTOM_ENABLED" = "true" ] && [ -n "$CUSTOM_COMMIT" ]; then

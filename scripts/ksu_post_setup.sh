@@ -41,7 +41,7 @@ apply_sukisu() {
 apply_finasu() {
   # FinaSU kernel/Kbuild 以 git rev-parse --abbrev-ref HEAD 取分支名拼进
   # KSU_VERSION_FULL（v<tag>-<sha>@<branch>）；CI 检出的是 detached 提交，
-  # 管理器「内核完整版本」因此显示 @HEAD。与 SukiSU 一致把使用点固定为
+  # 管理器「内核完整版本」因此显示 @HEAD。与 SukiSU-Nova 一致把使用点固定为
   # @LingLuo；须在管理器证书注入（awk 重写 Kbuild）之后调用。
   local kbuild="$KSU_DIR/kernel/Kbuild"
   if [ -f "$kbuild" ]; then
