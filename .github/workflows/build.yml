@@ -505,9 +505,9 @@ jobs:
               ;;
             "SukiSU-Nova")
               if [ "${{ inputs.enable_susfs }}" = "false" ]; then
-                BRANCH="-s main"
+                BRANCH="main"
               else
-                BRANCH="-s builtin"
+                BRANCH="builtin"
               fi
               ;;
             *)
@@ -523,7 +523,7 @@ jobs:
             if [ "$CUSTOM_ENABLED" == "true" ] && [ "$variant_input" == "SukiSU-Nova" ]; then
               SUKISU_COMMIT=$(grep "^sukisu=" "$CONFIG_FILE" | cut -d'=' -f2)
               if [ -n "$SUKISU_COMMIT" ]; then
-                BRANCH="-s $SUKISU_COMMIT"
+                BRANCH="$SUKISU_COMMIT"
                 echo "SukiSU-Nova 使用自定义提交: $SUKISU_COMMIT"
               fi
             fi
@@ -543,13 +543,16 @@ jobs:
           case "${{ inputs.ksu_variant }}" in
             "SukiSU-Nova")
               echo "添加 ${{ inputs.ksu_variant }}..."
-              curl -LSs "https://raw.githubusercontent.com/SukiSU-Nova/SukiSU-Nova/main/kernel/setup.sh" | bash $BRANCH
+              curl -LSs "https://git.zako.shirkneko.top:20004/shirkneko/SukiSU/raw/branch/main/kernel/setup.sh" | bash -s -- "$BRANCH"
               # 内核侧 KSU 版本来源对齐官方最新上传 Manager 构建：
-              # SukiSU-Nova 版本号 = 30000 + REPO_BRANCH 指向分支的提交数 - 4001
-              #（main 分支定义在 kernel/Kbuild，builtin 分支定义在 kernel/Makefile，
-              #  优先 GitHub API，回退本地 rev-list）。将 REPO_BRANCH 改写为官方
-              # 构建提交，保证内核 KSU 版本与拉取的管理器安装包严格一致
-              if [ -n "$KSU_COMMIT" ] && [ "$BRANCH" != "-s main" ] && [ "$BRANCH" != "-s builtin" ]; then
+              # SukiSU-Nova 版本号 = 30000 + main 提交数 + 996
+              #（main 分支定义在 kernel/Kbuild；builtin 分支仍使用旧版公式）。
+              # 将 REPO_BRANCH 改写为管理器构建提交，保证内核 KSU 版本与拉取的管理器安装包严格一致
+              if [ "$BRANCH" = "builtin" ]; then
+                # builtin 仍使用旧仓库的元数据；保持源码分支，只把版本标识迁移到新上游。
+                python3 "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/migrate_builtin_metadata.py" KernelSU/kernel/Makefile
+              fi
+              if [ -n "$KSU_COMMIT" ] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "builtin" ]; then
                 echo "SukiSU-Nova 使用自定义提交（$BRANCH），跳过管理器版本对齐"
               elif [ -n "$KSU_COMMIT" ]; then
                 if ! git -C KernelSU fetch origin "$KSU_COMMIT" 2>/dev/null; then
@@ -559,10 +562,10 @@ jobs:
                   echo "::error::官方构建提交 $KSU_COMMIT 不在 KernelSU 仓库中，无法对齐版本来源"
                   exit 1
                 fi
-                if [ "$BRANCH" = "-s builtin" ]; then
-                  KSU_VERSION_SOURCE="KernelSU/kernel/Makefile"
-                else
+                if [ -f "KernelSU/kernel/Kbuild" ]; then
                   KSU_VERSION_SOURCE="KernelSU/kernel/Kbuild"
+                else
+                  KSU_VERSION_SOURCE="KernelSU/kernel/Makefile"
                 fi
                 if ! sed -i -E "s|^(REPO_BRANCH[[:space:]]*[:?+]?=)[[:space:]]*main[[:space:]]*\$|\1 $KSU_COMMIT|" "$KSU_VERSION_SOURCE"; then
                   echo "::error::改写 $KSU_VERSION_SOURCE 的 REPO_BRANCH 失败，无法对齐管理器版本"
@@ -572,7 +575,7 @@ jobs:
                   echo "::error::未能在 $KSU_VERSION_SOURCE 中对齐 REPO_BRANCH（上游结构可能已变化），无法对齐管理器版本"
                   exit 1
                 fi
-                echo "SukiSU-Nova 内核侧版本来源已对齐官方上传构建提交 $KSU_COMMIT (KSU 版本 $((30000 + $(git -C KernelSU rev-list --count "$KSU_COMMIT") - 4001)))"
+                echo "SukiSU-Nova 内核侧版本来源已对齐官方上传构建提交 $KSU_COMMIT (KSU 版本 $((30000 + $(git -C KernelSU rev-list --count "$KSU_COMMIT") + 996)))"
               fi
               bash "$GITHUB_WORKSPACE/scripts/ksu_post_setup.sh" KernelSU sukisu
               ;;
@@ -699,7 +702,7 @@ jobs:
             KSU_COUNT=$(git -C KernelSU rev-list --count "${{ inputs.ksu_commit }}" 2>/dev/null || echo "")
             if [ -n "$KSU_COUNT" ]; then
               case "${{ inputs.ksu_variant }}" in
-                SukiSU-Nova) KSU_VERSION=$((30000 + KSU_COUNT - 4001)) ;;
+                SukiSU-Nova) KSU_VERSION=$((30000 + KSU_COUNT + 996)) ;;
                 BakaSU) KSU_VERSION=$((30700 + KSU_COUNT)) ;;
                 FinaSU) KSU_VERSION=$((30000 + KSU_COUNT)) ;;
               esac

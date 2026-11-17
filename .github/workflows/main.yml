@@ -700,9 +700,9 @@ jobs:
       - name: 获取 KernelSU 提交信息
         run: |
           case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU-Nova") REPO_URL="https://github.com/SukiSU-Nova/SukiSU-Nova.git"; REPO_URL2="SukiSU-Nova/SukiSU-Nova" ;;
-            "BakaSU") REPO_URL="https://github.com/Baka-SU/BakaSU.git"; REPO_URL2="Baka-SU/BakaSU" ;;
-            "FinaSU") REPO_URL="https://github.com/LyraVoid/FinaSU.git"; REPO_URL2="LyraVoid/FinaSU" ;;
+            "SukiSU-Nova") REPO_URL="https://git.zako.shirkneko.top:20004/shirkneko/SukiSU.git"; REPO_URL2="https://git.zako.shirkneko.top:20004/shirkneko/SukiSU" ;;
+            "BakaSU") REPO_URL="https://github.com/Baka-SU/BakaSU.git"; REPO_URL2="https://github.com/Baka-SU/BakaSU" ;;
+            "FinaSU") REPO_URL="https://github.com/LyraVoid/FinaSU.git"; REPO_URL2="https://github.com/LyraVoid/FinaSU" ;;
           esac
 
           if [ "${{ inputs.kernelsu_variant }}" = "SukiSU-Nova" ] && [ -f "config/config" ]; then
@@ -710,7 +710,7 @@ jobs:
             CUSTOM_COMMIT=$(grep "^sukisu=" config/config | cut -d'=' -f2)
             if [ "$CUSTOM_ENABLED" = "true" ] && [ -n "$CUSTOM_COMMIT" ]; then
               KSU_REF="$CUSTOM_COMMIT"
-              KSU_URL="https://github.com/$REPO_URL2/commit/$CUSTOM_COMMIT"
+              KSU_URL="$REPO_URL2/commit/$CUSTOM_COMMIT"
               echo "BRANCH_INFO=custom" >> $GITHUB_ENV
             fi
           fi
@@ -723,7 +723,7 @@ jobs:
             fi
             if [ -n "$COMMIT_HASH" ]; then
               KSU_REF=$COMMIT_HASH
-              KSU_URL="https://github.com/$REPO_URL2/releases/tag/$CHANNEL_TAG"
+              KSU_URL="$REPO_URL2/releases/tag/$CHANNEL_TAG"
               echo "BRANCH_INFO=release/${CHANNEL_TAG}" >> $GITHUB_ENV
             fi
           fi
@@ -731,7 +731,7 @@ jobs:
           if [ -z "${KSU_REF:-}" ]; then
             COMMIT_HASH=$(git ls-remote $REPO_URL refs/heads/${KSU_BRANCH:-main} | awk '{ print $1 }')
             KSU_REF=$COMMIT_HASH
-            KSU_URL="https://github.com/$REPO_URL2/commit/$COMMIT_HASH"
+            KSU_URL="$REPO_URL2/commit/$COMMIT_HASH"
           fi
 
           echo "KSU_REF=$KSU_REF" >> $GITHUB_ENV

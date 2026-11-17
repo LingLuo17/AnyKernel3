@@ -57,7 +57,7 @@ read_uapi() {
 }
 
 # 取官方 main 的 supercall.h（web 布局，UAPI 定义以 static const 发布）
-MAIN_URL="https://raw.githubusercontent.com/SukiSU-Nova/SukiSU-Nova/main/uapi/supercall.h"
+MAIN_URL="https://git.zako.shirkneko.top:20004/shirkneko/SukiSU/raw/branch/main/uapi/supercall.h"
 MAIN_FILE=$(mktemp)
 MAIN_JSON=""
 for ATTEMPT in 1 2 3; do

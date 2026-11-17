@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/LingLuo17/AnyKernel3?label=Release&style=flat-square&logo=github&logoColor=white&color=2ea44f)](https://github.com/LingLuo17/AnyKernel3/releases)
 [![Coolapk](https://img.shields.io/badge/Follow-Coolapk-3DDC84?style=flat-square&logo=android&logoColor=white)](http://www.coolapk.com/u/38407386)
 [<img src="https://img.shields.io/badge/Join-QQ%20Group-blue?style=flat-square&logo=github&logoColor=white">](https://qm.qq.com/q/PZIFvlcbqU)
-[![SukiSU-Nova](https://img.shields.io/badge/SukiSU--Nova-Supported-5AA300?style=flat-square)](https://github.com/SukiSU-Nova/SukiSU-Nova)
+[![SukiSU-Nova](https://img.shields.io/badge/SukiSU--Nova-Supported-5AA300?style=flat-square)](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU)
 [![BakaSU](https://img.shields.io/badge/BakaSU-Supported-5AA300?style=flat-square)](https://bakasu.org/)
 [![FinaSU](https://img.shields.io/badge/FinaSU-Supported-5AA300?style=flat-square)](https://github.com/LyraVoid/FinaSU)
 [![SUSFS](https://img.shields.io/badge/SUSFS-Integrated-E67E22?style=flat-square)](https://gitlab.com/simonpunk/susfs4ksu)
@@ -42,7 +42,7 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 | Feature | Description |
 |:---|:---|
 | 🔐 KernelSU Variants | Supports SukiSU-Nova / BakaSU / FinaSU variants, selectable at build time |
-| 🔀 Manager Channel | Release: latest **stable** upstream Release (tag commit + same-version manager), falls back to the newest official default-branch build when the upstream only ships pre-releases; Latest: pins the default-branch HEAD and picks the newest manager build matching that version |
+| 🔀 Manager Channel | Release: latest **stable** upstream Release (tag commit + same-version manager); Latest: the rolling `manager-ci` APK, with the kernel pinned to the main commit matching its version |
 | 🙈 SUSFS | Kernel-level hiding working with KSU to complete environment spoofing |
 | 💾 ZRAM LZ4 | ZRAM Compression Algorithm Patch |
 | 🛡️ BBG (Baseband Guard) | BBG patch to protect the baseband partitions from accidental wipe |
@@ -64,7 +64,7 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
    - `ksu_variant`: KernelSU variant (SukiSU-Nova / BakaSU / FinaSU)
    - `build_channel`: manager channel
      - `正式 (Release)`: manager APK taken from the latest **stable** upstream Release (`prerelease=false`) and the kernel pinned to that release tag commit, so manager and kernel versions match exactly; when the upstream only ships rc/pre-releases (e.g. BakaSU), the newest official default-branch build is used and pinned instead
-     - `最新 (HEAD)`: kernel pinned to the default-branch HEAD, and the manager is the newest build whose version matches HEAD (any branch; SukiSU-Nova / BakaSU use official CI builds, FinaSU uses the latest Release), so kernel and manager never drift apart
+     - `最新 (HEAD)`: SukiSU-Nova uses its rolling `manager-ci` APK and pins the matching main commit; BakaSU/FinaSU use their newest official manager build and pin that build's commit, so kernel and manager never drift apart
      - Both channels print the selected channel, pinned commit and manager version in the logs and the run summary
    - Feature switches: `enable_susfs`, `use_zram`, `use_bbg`, `use_net_enhance`, `use_kpm`, `skip_incompatible`, etc.
 4. Once the build finishes, download the **Artifacts** from the run page:
@@ -89,7 +89,7 @@ A commit is a hash string representing the state of a repository at a certain po
 **How to get a commit hash?**
 
 - SUSFS: [susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu) (GitLab → Repository → Commits)
-- SukiSU-Nova: [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) (GitHub commit history page)
+- SukiSU-Nova: [SukiSU-Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU) (commit history page)
 
 ## 🛠️ Recommended After Installation
 ### 🔧 Xposed Modules
@@ -101,7 +101,7 @@ A commit is a hash string representing the state of a repository at a certain po
 
 - [osm0sis/AnyKernel3](https://github.com/osm0sis/AnyKernel3)
 - [zzh20188/GKI_KernelSU_SUSFS](https://github.com/zzh20188/GKI_KernelSU_SUSFS) / [WildKernels/GKI_KernelSU_SUSFS](https://github.com/WildKernels/GKI_KernelSU_SUSFS)
-- [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
+- [SukiSU-Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
 - [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
 
 <div align="center">
@@ -213,7 +213,7 @@ A commit is a hash string representing the state of a repository at a certain po
 **如何获取提交哈希？**
 
 - SUSFS：[susfs4ksu](https://gitlab.com/simonpunk/susfs4ksu)（GitLab → Repository → Commits）
-- SukiSU-Nova：[SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova)（GitHub 提交历史页面）
+- SukiSU-Nova：[SukiSU-Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU)（提交历史页面）
 
 ## 🛠️ 安装后推荐
 ### 🔧 Xposed 模块
@@ -226,7 +226,7 @@ A commit is a hash string representing the state of a repository at a certain po
 
 - [osm0sis/AnyKernel3](https://github.com/osm0sis/AnyKernel3)
 - [zzh20188/GKI_KernelSU_SUSFS](https://github.com/zzh20188/GKI_KernelSU_SUSFS) / [WildKernels/GKI_KernelSU_SUSFS](https://github.com/WildKernels/GKI_KernelSU_SUSFS)
-- [SukiSU-Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
+- [SukiSU-Nova](https://git.zako.shirkneko.top:20004/shirkneko/SukiSU) / [BakaSU](https://bakasu.org/) / [FinaSU](https://github.com/LyraVoid/FinaSU)
 - [SUSFS](https://gitlab.com/simonpunk/susfs4ksu)
 
 <div align="center">

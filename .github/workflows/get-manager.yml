@@ -143,7 +143,7 @@ jobs:
 
           if [ "${{ inputs.kernelsu_variant }}" == "SukiSU-Nova" ]; then
             echo "This is the SukiSU-Nova variant"
-            git clone https://github.com/SukiSU-Nova/SukiSU-Nova.git KernelSU
+            git clone https://git.zako.shirkneko.top:20004/shirkneko/SukiSU.git KernelSU
           elif [ "${{ inputs.kernelsu_variant }}" == "BakaSU" ]; then
             echo "This is the BakaSU variant"
             git clone https://github.com/Baka-SU/BakaSU.git KernelSU
@@ -161,7 +161,7 @@ jobs:
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
 
           if [ "${{ inputs.kernelsu_variant }}" == "SukiSU-Nova" ]; then
-            KSU_VERSION=$((30000 + KSU_GIT_VERSION - 4001))
+            KSU_VERSION=$((30000 + KSU_GIT_VERSION + 996))
           elif [ "${{ inputs.kernelsu_variant }}" == "FinaSU" ]; then
             # FinaSU 内核 Kbuild 与管理器 build.gradle.kts 均以 30000 + git 提交数计算版本
             KSU_VERSION=$((30000 + KSU_GIT_VERSION))
@@ -184,10 +184,11 @@ jobs:
       # 正式：管理器取官方「正式版」Release（prerelease=false，标签提交 + 该 Release 的 APK）；
       #       上游没有正式版 Release 时（如 BakaSU 只有 rc 预发布），
       #       改用官方默认分支最新上传构建，内核仍锁定该构建提交
-      # 最新：管理器取与默认分支 HEAD 版本一致的最新构建（不限分支），内核锁定该 HEAD；
-      #       BakaSU/FinaSU 直接取 build-manager.yml 最新构建，内核锁定该构建提交
+      # 最新：SukiSU-Nova 取新上游的 manager-ci Release，按 APK 版本对齐 main 提交；
+      #       BakaSU/FinaSU 取 build-manager.yml 最新构建，内核锁定该构建提交
       - name: 选择管理器来源（构建通道）
         id: channel
+        if: inputs.kernelsu_variant != 'SukiSU-Nova'
         run: |
 
           CHANNEL_RAW="${{ inputs.build_channel }}"
@@ -198,7 +199,6 @@ jobs:
           echo "构建通道: $CHANNEL_RAW -> $CHANNEL_KIND (pin_mode=$PIN_MODE)"
 
           case "${{ inputs.kernelsu_variant }}" in
-            "SukiSU-Nova") REPO="SukiSU-Nova/SukiSU-Nova"; PREF="universal" ;;
             "BakaSU") REPO="Baka-SU/BakaSU";           PREF="arm64" ;;
             "FinaSU") REPO="LyraVoid/FinaSU";          PREF="universal" ;;
             *) echo "::error::未知变体"; exit 1 ;;
@@ -352,8 +352,12 @@ jobs:
         run: |
           VARIANT="${{ inputs.kernelsu_variant }}"
 
+          if [ "$VARIANT" = "SukiSU-Nova" ]; then
+            bash "$GITHUB_WORKSPACE/scripts/sukisu_manager.sh" "${{ inputs.build_channel }}" KernelSU
+            exit 0
+          fi
+
           case "$VARIANT" in
-            "SukiSU-Nova") REPO="SukiSU-Nova/SukiSU-Nova"; KSUM="manager"; EXPECTED_BRANCH="main" ;;
             "BakaSU") REPO="Baka-SU/BakaSU";           KSUM="manager"; EXPECTED_BRANCH="main" ;;
             "FinaSU") REPO="LyraVoid/FinaSU";          KSUM="manager"; EXPECTED_BRANCH="master" ;;
             *) echo "::error::未知变体: $VARIANT"; exit 1 ;;
@@ -391,7 +395,6 @@ jobs:
                 REL_COUNT=$(git -C KernelSU rev-list --count "$REL_COMMIT" 2>/dev/null || echo "")
                 if [ -n "$REL_COUNT" ]; then
                   case "$VARIANT" in
-                    SukiSU-Nova) REL_KSU_VERSION=$((30000 + REL_COUNT - 4001)) ;;
                     BakaSU) REL_KSU_VERSION=$((30700 + REL_COUNT)) ;;
                     FinaSU) REL_KSU_VERSION=$((30000 + REL_COUNT)) ;;
                   esac
@@ -511,7 +514,6 @@ jobs:
           # 版本号与管理器 versionCode 同源（提交数 + 偏移），用于按版本挑选构建
           ksu_version_of() {
             case "$1" in
-              SukiSU-Nova) echo $((30000 + $2 - 4001)) ;;
               BakaSU) echo $((30700 + $2)) ;;
               FinaSU) echo $((30000 + $2)) ;;
             esac
@@ -722,7 +724,6 @@ jobs:
           if [ -n "$PIN_COUNT" ]; then
             case "$VARIANT" in
               BakaSU) PINNED_KSU_VERSION=$((30700 + PIN_COUNT)) ;;
-              SukiSU-Nova) PINNED_KSU_VERSION=$((30000 + PIN_COUNT - 4001)) ;;
               FinaSU) PINNED_KSU_VERSION=$((30000 + PIN_COUNT)) ;;
               *)      PINNED_KSU_VERSION="" ;;
             esac
