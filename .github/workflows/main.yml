@@ -614,12 +614,8 @@ jobs:
           # Hook 类型
           echo "HOOK_TYPE=SUSFS Inline Hooks" >> $GITHUB_ENV
 
-          # Mount 类型（FinaSU 使用 metamodule 模块架构）
-          if [ "${{ inputs.kernelsu_variant }}" == "FinaSU" ]; then
-            echo "MOUNT_TYPE=Metamodule" >> $GITHUB_ENV
-          else
-            echo "MOUNT_TYPE=Magic Mount" >> $GITHUB_ENV
-          fi
+          # NoMount 挂载元模块
+          echo "NOMOUNT_STATUS=${{ inputs.use_nomount && '启用' || '未开启' }}" >> $GITHUB_ENV
 
           echo "CHANNEL_TAG=${{ needs.get-manager.outputs.channelTag }}" >> $GITHUB_ENV
           echo "CHANNEL_NAME=${{ inputs.build_channel }}" >> $GITHUB_ENV
@@ -635,7 +631,7 @@ jobs:
               echo "KSU_VER=-" >> $GITHUB_ENV
               echo "SUS_VER=未集成" >> $GITHUB_ENV
               echo "HOOK_TYPE=无" >> $GITHUB_ENV
-              echo "MOUNT_TYPE=无" >> $GITHUB_ENV
+              echo "NOMOUNT_STATUS=未开启" >> $GITHUB_ENV
               echo "BRANCH_INFO=-" >> $GITHUB_ENV
               echo "RELEASE_NAME=GKI Kernel: 纯净版（无 KernelSU / SUSFS）" >> $GITHUB_ENV
               echo "RELEASE_HEADER=**纯净 GKI 内核**（未集成 KernelSU / SUSFS）" >> $GITHUB_ENV
@@ -837,12 +833,12 @@ jobs:
           | KernelSU 分支 | $BRANCH_INFO |
           | SUSFS | $SUS_VER |
           | Hook 类型 | $HOOK_TYPE |
-          | 挂载方式 | $MOUNT_TYPE |
           | LTO | thin |
           | ZRAM / LZ4KD | $LZ4_STATUS |
           | BBG 基带保护 | $BBG_STATUS |
           | 网络增强 (BBRv3 / IPSet / Qdisc / CIFS) | $NET_ENHANCE_STATUS |
           | Re-Kernel 驱动 | $REKERNEL_STATUS |
+          | NoMount 挂载元模块 | $NOMOUNT_STATUS |
           | KPM | $KPM_STATUS |
           | Droidspaces 容器支持 | $DROIDSPACES_STATUS |
 
@@ -856,6 +852,7 @@ jobs:
           | \`*.img\` | boot、vendor_boot 等镜像文件 |
           | \`*.apk\` | Root 管理器 |
           | \`susfs-*.zip\` | SUSFS 配套模块 |
+          | \`nomount-*.zip\` | NoMount 配套元模块 |
 
           > [!IMPORTANT]
           > 刷入前请备份原厂 Boot 镜像。
