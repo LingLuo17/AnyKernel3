@@ -549,7 +549,10 @@ jobs:
               #（main 分支定义在 kernel/Kbuild；builtin 分支仍使用旧版公式）。
               # 将 REPO_BRANCH 改写为管理器构建提交，保证内核 KSU 版本与拉取的管理器安装包严格一致
               if [ "$BRANCH" = "builtin" ]; then
-                # builtin 仍使用旧仓库的元数据；保持源码分支，只把版本标识迁移到新上游。
+                # builtin 分支源码已迁到 git.zako.shirkneko.top（新上游），但 Makefile 里
+                # REPO_OWNER/REPO_NAME/GITHUB_API_BASE 仍是旧的 SukiSU-Nova/SukiSU-Nova
+                # + api.github.com 元数据（对应已 404 的旧 fork）；这里只迁移版本标识
+                # 到 shirkneko/SukiSU + zako Forgejo，保持 builtin 的 SUSFS 源码形态不变。
                 python3 "$GITHUB_WORKSPACE/scripts/ksu_uapi_sync/migrate_builtin_metadata.py" KernelSU/kernel/Makefile
               fi
               if [ -n "$KSU_COMMIT" ] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "builtin" ]; then

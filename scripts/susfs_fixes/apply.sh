@@ -290,6 +290,46 @@ python3 "$SCRIPT_DIR/normalize_trace_ctx.py" "$SUSFS_PATCH"
 
 patch -p1 < "$SUSFS_PATCH" || true
 
+# ==================== SUSFS：SELinux 钩子不再拦截 sandbox uid ====================
+# 背景：susfs4ksu 主补丁的 SELinux 钩子条件写成 current_uid().val >= 10000，
+#   把 Android 的 isolated / webview sandbox（90000~99999，WebView 渲染进程是
+#   99000+）也纳入拦截。zygote 创建渲染进程时用 setcontext 设定 sandbox 域，
+#   一旦走 SUSFS 的伪装策略校验就返回 EINVAL（bugreport 实测：
+#   "selinux_android_setcontext: Error setting context for app with uid 99000 ...
+#   Invalid argument"），渲染进程直接 abort → 管理器里的模块 WebUI 白屏。
+# 处理：把拦截范围收窄到普通应用 uid（10000~89999），sandbox 进程一律走原生
+#   selinux_setprocattr / sel_write_context；检测软件都在 10xxx，隐藏不受影响。
+for f in security/selinux/hooks.c security/selinux/selinuxfs.c; do
+  [ -f "$f" ] || continue
+  if grep -q 'current_uid()\.val < 90000' "$f"; then
+    echo "$f: SELinux 钩子已排除 sandbox uid，跳过"
+    continue
+  fi
+  n=$(grep -c 'current_uid()\.val >= 10000' "$f" 2>/dev/null || true)
+  if [ "${n:-0}" -gt 0 ]; then
+    sed -i 's/current_uid()\.val >= 10000/current_uid().val >= 10000 \&\& current_uid().val < 90000/g' "$f"
+    echo "$f: SELinux 钩子已排除 sandbox uid（$n 处）"
+  fi
+done
+
+# 守护：上游 2026-11-14/15 起把 SELinux 钩子抽成 handle_selinux_* 分发函数并
+# 注册进 selinux_hooks[]（同时保留旧的内联形态），门控条件写法有
+#   likely(current_uid().val >= 10000 && ksu_selinux_hide_running)
+#   (likely(...))、多行 && 续行 等多种变体；未来还可能改用 AID_APP_START 别名。
+# 上面 sed 按字面 "current_uid().val >= 10000" 全局替换，正常应全部命中；
+# 若上游再改写法导致漏网，sandbox uid（90000~99999）会被 SELinux 隐藏钩子
+# 拦截，WebView 渲染进程 setcontext 失败、模块 WebUI 白屏。
+# 这里按 SELinux 语义断言：文件里凡出现 ksu_selinux_hide_running 门控，必须
+# 同时存在 < 90000 收窄；否则立即报错，避免静默退化。
+for f in security/selinux/hooks.c security/selinux/selinuxfs.c; do
+  [ -f "$f" ] || continue
+  if grep -q 'ksu_selinux_hide_running' "$f" \
+    && ! grep -q 'current_uid()\.val < 90000' "$f"; then
+    echo "::error::$f 存在 SELinux 隐藏门（ksu_selinux_hide_running）但未收窄 sandbox uid（< 90000），上游写法已变化，请人工核对"
+    exit 1
+  fi
+done
+
 # ==================== FinaSU 新 selinux_hide 模型适配 ====================
 # 自 FinaSU v0.1.0-preview1 起，kernel/feature/selinux_hide.c 换成了 tiann 新形态：
 #   移除 fake_state；统一用 backup_sepolicy + security_context_to_sid_with_policy(..., &orig_sid_p, &orig_rc_p)（8 参）；
