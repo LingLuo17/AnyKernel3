@@ -888,6 +888,16 @@ jobs:
           fi
           [ -n "$MANAGER_VER" ] || MANAGER_VER="未获取"
 
+          # SukiSU-Nova 跳过「选择管理器来源」步骤，CHANNEL_KIND 从未写入 env；
+          # 与 add_KSU 的兜底一致，直接按输入判断通道
+          CHANNEL_KIND="${CHANNEL_KIND:-}"
+          if [ -z "$CHANNEL_KIND" ]; then
+            case "${{ inputs.build_channel }}" in
+              最新*|latest*|HEAD*) CHANNEL_KIND="latest" ;;
+              *)                   CHANNEL_KIND="release" ;;
+            esac
+          fi
+
           case "${CHANNEL_KIND:-}" in
             latest) CH_LABEL="最新通道（HEAD）" ;;
             *)      CH_LABEL="正式通道（Release）" ;;
