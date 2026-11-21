@@ -3,7 +3,10 @@ set -euo pipefail
 
 CHANNEL="${1:-release}"
 KSU_DIR="${2:-KernelSU}"
-API="https://git.zako.shirkneko.top:20004/api/v1/repos/shirkneko/SukiSU"
+# 管理器 APK 已迁到 cnb.cool/shirkneko/sukisu-result（zako 上的 Release 不再带 APK 资产）；
+# 该端点需 Accept: application/json 才返回 JSON，字段与 Gitea 兼容
+API="https://cnb.cool/shirkneko/sukisu-result/-/releases"
+ACCEPT="Accept: application/json"
 
 case "$CHANNEL" in
   最新*|latest*|HEAD*) ROLLING=true ;;
@@ -12,7 +15,7 @@ esac
 
 RELEASE=""
 if [ "$ROLLING" = false ]; then
-  RELEASE=$(curl -fsSL --retry 3 --max-time 30 "$API/releases?limit=40" | jq -c '
+  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API" | jq -c '
     [ .[]
       | select((.draft | not) and (.prerelease | not))
       | select(.tag_name | test("(?i)^(manager-ci|manager_ci|nightly|latest|ci)$") | not)
@@ -28,7 +31,7 @@ if [ "$ROLLING" = false ]; then
 fi
 
 if [ "$ROLLING" = true ]; then
-  RELEASE=$(curl -fsSL --retry 3 --max-time 30 "$API/releases/tags/manager-ci")
+  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API/tags/manager-ci")
 fi
 
 TAG=$(printf '%s' "$RELEASE" | jq -r '.tag_name')
