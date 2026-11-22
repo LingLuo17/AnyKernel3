@@ -15,15 +15,7 @@ esac
 
 RELEASE=""
 if [ "$ROLLING" = false ]; then
-  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API" | jq -c '
-    [ .[]
-      | select((.draft | not) and (.prerelease | not))
-      | select(.tag_name | test("(?i)^(manager-ci|manager_ci|nightly|latest|ci)$") | not)
-      | select(any(.assets[]?;
-          (.name | test("release\\.apk$"; "i")) and
-          (.name | test("(?i)debug|spoofed") | not))) ]
-    | .[0] // empty
-  ')
+  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API/latest")
   if [ -z "$RELEASE" ]; then
     echo "::notice::SukiSU-Nova 没有正式版 APK，改用 manager-ci"
     ROLLING=true
