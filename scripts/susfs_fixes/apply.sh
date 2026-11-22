@@ -290,6 +290,40 @@ python3 "$SCRIPT_DIR/normalize_trace_ctx.py" "$SUSFS_PATCH"
 
 patch -p1 < "$SUSFS_PATCH" || true
 
+# SUSFS uses its own AV decision helper for the hidden SELinux access path.
+# Keep its reported sequence stable instead of exposing the live policy
+# generation through /selinux/access. Do not change the kernel's avd_init().
+for f in security/selinux/ss/services.c security/selinux/hooks.c; do
+  [ -f "$f" ] || continue
+  if grep -q 'void susfs_security_compute_av_user' "$f" \
+    && ! grep -q 'avd->seqno = 1;' "$f"; then
+    python3 - "$f" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8", errors="surrogateescape") as f:
+    text = f.read()
+
+match = re.search(r"void susfs_security_compute_av_user\(", text)
+if not match:
+    raise SystemExit("SUSFS AV helper not found")
+end = text.find("\n}\n", match.start())
+if end < 0:
+    raise SystemExit("SUSFS AV helper is incomplete")
+body = text[match.start():end]
+needle = "\tavd_init(policy, avd);"
+if body.count(needle) != 1:
+    raise SystemExit("unexpected SUSFS AV initialization")
+body = body.replace(needle, needle + "\n\tavd->seqno = 1;", 1)
+text = text[:match.start()] + body + text[end:]
+with open(path, "w", encoding="utf-8", errors="surrogateescape") as f:
+    f.write(text)
+PYEOF
+    echo "$f: SUSFS access results now report SELinux sequence 1"
+  fi
+done
+
 # ==================== SUSFS：SELinux 钩子不再拦截 sandbox uid ====================
 # 背景：susfs4ksu 主补丁的 SELinux 钩子条件写成 current_uid().val >= 10000，
 #   把 Android 的 isolated / webview sandbox（90000~99999，WebView 渲染进程是
