@@ -162,45 +162,11 @@ if [ -f "$LSM_COUNT_FILE" ] && [ -f "$LSM_PANIC_GUARD" ] \
     echo "lsm_count.h 已含 KSU 槽位，跳过"
   else
     echo "为内建 KSU 预留 LSM static call 槽位 (MAX_LSM_COUNT +1)..."
-    python3 - "$LSM_COUNT_FILE" <<'PYEOF'
-import sys
-
-path = sys.argv[1]
-text = open(path, encoding="utf-8", errors="surrogateescape").read()
-
-block = """/*
- * KernelSU registers its own LSM from device_initcall, after every built-in
- * LSM has taken its static call slot. Reserve one extra column so that
- * security_add_hooks() finds a free slot instead of panicking with
- * "Too many LSMs registered".
- */
-#if IS_ENABLED(CONFIG_KSU)
-#define KSU_ENABLED 1,
-#else
-#define KSU_ENABLED
-#endif
-
-"""
-
-anchor = "#define MAX_LSM_COUNT"
-idx = text.find(anchor)
-if idx < 0:
-    sys.exit("MAX_LSM_COUNT not found")
-
-text = text[:idx] + block + text[idx:]
-
-open_brace = text.find("COUNT_LSMS(", idx)
-if open_brace < 0:
-    sys.exit("COUNT_LSMS not found")
-line_end = text.find("\n", open_brace)
-text = text[:line_end + 1] + "\t\tKSU_ENABLED\t\t\\\n" + text[line_end + 1:]
-
-open(path, "w", encoding="utf-8", errors="surrogateescape").write(text)
-print("  lsm_count.h: MAX_LSM_COUNT 已为 KSU 增加一列")
-PYEOF
-    grep -q 'KSU_ENABLED' "$LSM_COUNT_FILE" \
-      || fail "lsm_count.h 增加 KSU 槽位后校验失败"
+    python3 "$COMPAT_DIR/reserve_lsm_slot.py" "$LSM_COUNT_FILE" \
+      || fail "lsm_count.h 增加 KSU 槽位失败"
   fi
+  python3 "$COMPAT_DIR/reserve_lsm_slot.py" --verify "$LSM_COUNT_FILE" \
+    || fail "lsm_count.h 中的 KSU 槽位未包含在 MAX_LSM_COUNT 内"
 else
   echo "内核无 lsm_count.h 或 KSU 未用 security_add_hooks，跳过 LSM 槽位预留"
 fi
