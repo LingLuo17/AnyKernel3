@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add and validate KernelSU's entry in the compile-time LSM count."""
+"""Reserve LSM slots for KernelSU and external BasebandGuard hooks."""
 
 import argparse
 from pathlib import Path
@@ -7,9 +7,15 @@ import re
 import sys
 
 SLOT_BLOCK = """/*
- * KernelSU registers its own LSM after all built-in LSMs have initialized.
- * Keep a free static-call slot to avoid a boot-time LSM overflow panic.
+ * These modules call security_add_hooks independently of the built-in LSMs
+ * counted below. Account for their static-call table entries at compile time.
  */
+#if IS_ENABLED(CONFIG_BBG)
+#define BBG_ENABLED 1,
+#else
+#define BBG_ENABLED
+#endif
+
 #if IS_ENABLED(CONFIG_KSU)
 #define KSU_ENABLED 1,
 #else
@@ -17,17 +23,7 @@ SLOT_BLOCK = """/*
 #endif
 
 """
-SLOT_BLOCK = """/*
- * KernelSU registers its own LSM after all built-in LSMs have initialized.
- * Keep a free static-call slot to avoid a boot-time LSM overflow panic.
- */
-#if IS_ENABLED(CONFIG_KSU)
-#define KSU_ENABLED 1,
-#else
-#define KSU_ENABLED
-#endif
-
-"""
+EXTRA_LSMS = {"BBG_ENABLED", "KSU_ENABLED"}
 SLOT = "KSU_ENABLED"
 GKI_LSMS = {
     "CAPABILITIES_ENABLED",
@@ -82,25 +78,30 @@ def lsm_arguments(definition):
 
 def validate(text):
     names = lsm_arguments(max_lsm_definition(text))
-    if names.count(SLOT) != 1:
-        raise ValueError("KSU_ENABLED must occur exactly once in MAX_LSM_COUNT")
-    unknown = set(names) - SUPPORTED_LSMS - {SLOT}
+    unknown = set(names) - SUPPORTED_LSMS - EXTRA_LSMS
     if unknown:
         raise ValueError("unknown LSM macros: " + ", ".join(sorted(unknown)))
-    without_slot = [name for name in names if name != SLOT]
-    without_ksu = sum(name in GKI_LSMS for name in without_slot)
-    with_ksu = sum(name in GKI_LSMS or name == SLOT for name in names)
-    if with_ksu != without_ksu + 1 or with_ksu != 6:
-        raise ValueError(f"expected GKI LSM capacity 5 to 6, got {without_ksu} to {with_ksu}")
-    return with_ksu
+    if any(names.count(name) > 1 for name in names):
+        raise ValueError("MAX_LSM_COUNT contains duplicate LSM entries")
+    for name in EXTRA_LSMS | SUPPORTED_LSMS:
+        if not re.search(rf"^#define\s+{name}(?:\s+1,)?\s*$", text, re.M):
+            raise ValueError(f"missing compile-time definition for {name}")
+    if names.count("KSU_ENABLED") != 1:
+        raise ValueError("KSU_ENABLED must occur exactly once in MAX_LSM_COUNT")
+    base = sum(name in GKI_LSMS for name in names)
+    bbg = names.count("BBG_ENABLED")
+    result = base + bbg + names.count("KSU_ENABLED")
+    if result != base + bbg + 1:
+        raise ValueError("KernelSU did not increase MAX_LSM_COUNT by one")
+    return base, bbg, result
 
 
 def patch(text):
-    if SLOT in text:
-        raise ValueError("KSU_ENABLED already present; run --verify instead")
+    if any(name in text for name in EXTRA_LSMS):
+        raise ValueError("external LSM slot already present; run --verify instead")
     definition = max_lsm_definition(text)
     names = lsm_arguments(definition)
-    if len(names) < 13 or "CAPABILITIES_ENABLED" not in names:
+    if len(names) < 13:
         raise ValueError("unexpected MAX_LSM_COUNT definition")
     start = definition.index("COUNT_LSMS") + len("COUNT_LSMS")
     open_brace = definition.index("(", start)
@@ -108,9 +109,10 @@ def patch(text):
         line_end = definition.index("\n", start) + 1
     else:
         line_end = open_brace + 1
-    replacement = definition[:line_end] + "\t\tKSU_ENABLED\t\t\\\n" + definition[line_end:]
-    if lsm_arguments(replacement) != [SLOT] + names:
-        raise ValueError("KSU_ENABLED was not inserted into COUNT_LSMS")
+    slots = "\t\tBBG_ENABLED\t\t\\\n\t\tKSU_ENABLED\t\t\\\n"
+    replacement = definition[:line_end] + slots + definition[line_end:]
+    if lsm_arguments(replacement) != ["BBG_ENABLED", "KSU_ENABLED"] + names:
+        raise ValueError("external LSM slots were not inserted into COUNT_LSMS")
     return text.replace(definition, SLOT_BLOCK + replacement, 1)
 
 
@@ -124,10 +126,10 @@ def main():
         if not args.verify:
             text = patch(text)
             args.file.write_text(text, encoding="utf-8", errors="surrogateescape")
-        count = validate(text)
+        base, bbg, count = validate(text)
     except (OSError, ValueError, StopIteration) as error:
         sys.exit(f"{args.file}: {error}")
-    print(f"Verified {args.file}: {count} LSM slots with KernelSU")
+    print(f"Verified {args.file}: {base} base + {bbg} BBG + 1 KSU = {count} LSM slots")
 
 
 if __name__ == "__main__":
