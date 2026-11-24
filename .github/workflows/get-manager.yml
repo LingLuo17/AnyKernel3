@@ -374,6 +374,65 @@ jobs:
 
           mkdir -p manager-artifacts
 
+          download_bakasu_manager() (
+            local name="$1" url="$2" tmp_dir
+            tmp_dir=$(mktemp -d) || return 1
+            trap 'rm -rf -- "$tmp_dir"' EXIT
+            echo "下载 $name..."
+            curl -fL --retry 3 -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -o "$tmp_dir/manager.zip" "$url" || return 1
+            unzip -qj "$tmp_dir/manager.zip" '*-arm64-v8a-release.apk' \
+              -d "$tmp_dir/apks" || return 1
+            find "$tmp_dir/apks" -type f -name '*debug*.apk' -delete || return 1
+            local apks=("$tmp_dir/apks/"*.apk)
+            if [ "${#apks[@]}" -ne 1 ] || [ ! -f "${apks[0]}" ]; then
+              echo "::warning::$name 未提供唯一的 BakaSU arm64-v8a release APK"
+              return 1
+            fi
+            # 同一构建的两种 APK 可能同名，Release 按文件名区分附件。
+            if [ "$name" == "Spoofed-Manager-release" ]; then
+              mv -- "${apks[0]}" "${apks[0]%.apk}-spoofed.apk" || return 1
+            fi
+
+            mkdir -p manager-artifacts && rm -rf -- "manager-artifacts/$name" && \
+              mv -- "$tmp_dir/apks" "manager-artifacts/$name"
+          )
+
+          download_bakasu_spoof() {
+            local build_id head_sha url version
+            # 上游已停产 Spoof 版，独立回溯历史产物，不让旧 APK 替换普通版。
+            while IFS=$'\t' read -r build_id head_sha url; do
+              version=$(git -C KernelSU rev-list --count "$head_sha" 2>/dev/null || true)
+              if ! [[ "$version" =~ ^[0-9]+$ ]]; then
+                git -C KernelSU fetch --no-tags origin "$head_sha" >/dev/null 2>&1 || continue
+                version=$(git -C KernelSU rev-list --count "$head_sha" 2>/dev/null || true)
+              fi
+              [[ "$version" =~ ^[0-9]+$ ]] || continue
+              version=$((30700 + version))
+              if [ "${MANAGER_SOURCE:-ci}" = "release" ] && [ -n "$MANAGER_VERSION" ] && [ -n "${REL_COMMIT:-}" ]; then
+                # 正式通道不能把旧 Spoof APK 与新 Release 内核混装。
+                [ "$head_sha" = "$REL_COMMIT" ] || continue
+              elif [ "$version" -ne "$MANAGER_VERSION" ]; then
+                continue
+              fi
+              # 只接受上游主分支成功且非 PR 的构建，避免附上开发测试版。
+              if ! gh api "repos/$REPO/actions/runs/$build_id" | jq -e '
+                .path == ".github/workflows/build-manager.yml" and .conclusion == "success" and
+                .head_branch == "main" and .head_sha == "'"$head_sha"'" and
+                (.event == "push" or .event == "workflow_dispatch")' >/dev/null; then
+                continue
+              fi
+              if download_bakasu_manager "Spoofed-Manager-release" "$url"; then
+                echo "已附带 BakaSU Spoofed Manager：构建 $build_id，KSU $version"
+                return 0
+              fi
+            done < <(gh api --paginate "repos/$REPO/actions/artifacts?name=Spoofed-Manager-release&per_page=100" --jq '
+              .artifacts[] | select(.name == "Spoofed-Manager-release" and (.expired | not)) |
+              select(.workflow_run.head_branch == "main" and .workflow_run.repository_id == .workflow_run.head_repository_id) |
+              [.workflow_run.id, .workflow_run.head_sha, .archive_download_url] | @tsv')
+            return 1
+          }
+
           # ==================== A. 正式通道：官方 Release 管理器 ====================
           if [ "${MANAGER_SOURCE:-ci}" = "release" ] && [ -n "${REL_APK_URL:-}" ]; then
             echo "正式通道：下载 Release $REL_TAG 的管理器（$REL_APK_NAME）..."
@@ -415,6 +474,9 @@ jobs:
                   else
                     echo "::warning title=证书缺失::无法从 Release 管理器 APK 提取签名证书，内核侧将回退提取"
                   fi
+                fi
+                if [ "$VARIANT" == "BakaSU" ] && ! download_bakasu_spoof; then
+                  echo "::warning::没有与内核提交匹配的 BakaSU Spoofed Manager，本次仅附带普通版。"
                 fi
                 exit 0
               fi
@@ -504,7 +566,7 @@ jobs:
                 '.artifacts[] | select(.name == "manager") | "\(.name)\t\(.archive_download_url)"'
             elif [ "$VARIANT" == "BakaSU" ]; then
               printf '%s' "$artifacts" | jq -r \
-                '.artifacts[] | select(.name == "Manager-release" or .name == "Spoofed-Manager-release") | "\(.name)\t\(.archive_download_url)"'
+                '.artifacts[] | select(.name == "Manager-release" and (.expired | not)) | "\(.name)\t\(.archive_download_url)"'
             else
               printf '%s' "$artifacts" | jq -r --arg needle "$KSUM" \
                 '.artifacts[] | select((.name | ascii_downcase) | contains($needle)) | "\(.name)\t\(.archive_download_url)"'
@@ -777,6 +839,11 @@ jobs:
             if ! find manager-artifacts -type f -name "*-arm64-v8a-release.apk" | grep -q .; then
               echo "未找到 BakaSU arm64-v8a release 管理器。"
               exit 1
+            fi
+            # 普通版成功后再恢复已停产的 Spoof 版，失败不影响本次发布。
+            rm -rf -- manager-artifacts/Spoofed-Manager-release
+            if ! download_bakasu_spoof; then
+              echo "::warning::没有与内核提交匹配的 BakaSU Spoofed Manager，本次仅附带普通版。"
             fi
             find manager-artifacts -type f -name "*.apk" -print
           fi
