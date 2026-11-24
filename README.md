@@ -53,7 +53,6 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
 | 🩹 CVE-2026-43499 | Optional automatic application of the rtmutex fix |
 | 📱 OnePlus Snapdragon 8 Elite / Gen5 Support | Optional: Add support for OnePlus Snapdragon 8 Elite / Gen5 processor |
 | 🐳 Droidspaces | Optional container support with NTSync kernel compatibility patch |
-| 🧩 Skip Incompatible | Optional: auto-skip incompatible or unusable features (except SUSFS and OnePlus 8 Elite/Gen5 support) instead of failing the build |
 
 ## 🚀 Usage
 
@@ -66,7 +65,7 @@ Built upon [AnyKernel3](https://github.com/osm0sis/AnyKernel3), this repository 
      - `正式 (Release)`: manager APK taken from the latest **stable** upstream Release (`prerelease=false`) and the kernel pinned to that release tag commit, so manager and kernel versions match exactly; when the upstream only ships rc/pre-releases (e.g. BakaSU), the newest official default-branch build is used and pinned instead
      - `最新 (HEAD)`: SukiSU-Nova uses its rolling `manager-ci` APK and pins the matching main commit; BakaSU/FinaSU use their newest official manager build and pin that build's commit, so kernel and manager never drift apart
      - Both channels print the selected channel, pinned commit and manager version in the logs and the run summary
-   - Feature switches: `enable_susfs`, `use_zram`, `use_bbg`, `use_net_enhance`, `use_kpm`, `skip_incompatible`, etc.
+   - Feature switches: `enable_susfs`, `use_zram`, `use_bbg`, `use_net_enhance`, `use_kpm`, etc.
 4. Once the build finishes, download the **Artifacts** from the run page:
    - `AnyKernel3.zip` — flashable zip (recommended; flash via custom Recovery or KSU)
    - `boot.img` / `boot-gz.img` / `boot-lz4.img` — boot images for each compression format
@@ -177,7 +176,6 @@ A commit is a hash string representing the state of a repository at a certain po
 | 🩹 CVE-2026-43499 | 可选自动应用 rtmutex 修复补丁 |
 | 📱 一加 骁龙8 Elite/Gen5 支持 | 可选添加一加 骁龙8 Elite/Gen5 处理器支持 |
 | 🐳 Droidspaces | 可选容器支持及 NTSync 内核兼容补丁 |
-| 🧩 兼容跳过 | 可选：功能不兼容或无法使用时自动跳过该功能（SUSFS 与 一加 骁龙8 Elite/Gen5 支持除外，二者失败仍会中断构建），不中断构建 |
 
 ## 🚀 使用方法
 
@@ -190,7 +188,7 @@ A commit is a hash string representing the state of a repository at a certain po
      - `正式 (Release)`：使用上游最新**正式版** Release（`prerelease=false`）的管理器 APK，内核检出该 Release 标签的同一提交，版本严格一致；上游只有 rc/预发布版时（如 BakaSU），改用官方默认分支最新上传构建并锁定该提交
      - `最新 (HEAD)`：内核锁定默认分支 HEAD，管理器取与 HEAD 版本号一致的最新构建（不限分支，SukiSU-Nova / BakaSU 用官方 CI 构建，FinaSU 用最新 Release），避免内核与管理器版本错位
      - 两个通道的日志与运行摘要（Summary）都会打印实际选用的通道、提交与管理器版本
-   - 功能开关：`enable_susfs`、`use_zram`、`use_bbg`、`use_net_enhance`、`use_kpm`、`skip_incompatible` 等 
+   - 功能开关：`enable_susfs`、`use_zram`、`use_bbg`、`use_net_enhance`、`use_kpm` 等
 4. 构建完成后，在本次运行页面下载 **Artifacts**：
    - `AnyKernel3.zip` —— 卡刷包（推荐，配合自定义 Recovery 或 KSU 刷入）
    - `boot.img` / `boot-gz.img` / `boot-lz4.img` —— 每种压缩格式的 boot 镜像

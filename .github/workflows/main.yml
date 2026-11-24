@@ -121,12 +121,6 @@ on:
         type: boolean
         default: false
 
-      # ==================== 兼容性 ====================
-      skip_incompatible:
-        description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
-        type: boolean
-        default: true
-
       # ==================== 构建版本选择 ====================
       build_a12_5_10:
         description: "Android 12 - 5.10"
@@ -182,7 +176,6 @@ jobs:
       use_rekernel: ${{ inputs.use_rekernel }}
       use_kpm: ${{ inputs.use_kpm }}
       cve_2026_43499_patch: ${{ inputs.cve_2026_43499_patch }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
@@ -215,7 +208,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 13 - 5.10 构建 ====================
@@ -244,7 +236,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 13 - 5.15 构建 ====================
@@ -273,7 +264,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 14 - 5.15 构建 ====================
@@ -302,7 +292,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 14 - 6.1 构建 ====================
@@ -331,7 +320,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 15 - 6.6 构建 ====================
@@ -360,7 +348,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 16 - 6.12 构建 ====================
@@ -388,7 +375,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== Android 17 - 6.18 构建 ====================
@@ -416,7 +402,6 @@ jobs:
       droidspaces: ${{ startsWith(inputs.droidspaces, '678') && '678' || startsWith(inputs.droidspaces, '123') && '123' || startsWith(inputs.droidspaces, '345') && '345' || 'off' }}
       artifact_upload_mode: ${{ inputs.artifact_upload_mode }}
       droidspaces_ntsync: ${{ contains(inputs.droidspaces, 'NTSync') }}
-      skip_incompatible: ${{ inputs.skip_incompatible || false }}
       called_from_main: true
 
   # ==================== 收集补丁冲突文件 ====================

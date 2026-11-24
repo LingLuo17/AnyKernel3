@@ -117,11 +117,6 @@ on:
         required: false
         type: boolean
         default: false
-      skip_incompatible:
-        description: "功能不兼容或无法使用时自动跳过该功能（不中断构建）"
-        required: false
-        type: boolean
-        default: true
 
 jobs:
   build-kernel:
@@ -134,7 +129,6 @@ jobs:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
       CCACHE_NOHASHDIR: "true"
       CCACHE_HARDLINK: "true"
-      SKIP_INCOMPATIBLE: ${{ inputs.skip_incompatible }}
 
     steps:
       - name: 构建信息摘要
@@ -159,7 +153,6 @@ jobs:
           echo "CVE-2026-43499: ${{ inputs.cve_2026_43499_patch }}"
           echo "Droidspaces   : ${{ inputs.droidspaces }}"
           echo "NTSync        : ${{ inputs.droidspaces_ntsync }}"
-          echo "兼容跳过      : ${{ inputs.skip_incompatible }}"
           echo "产物上传模式  : ${{ inputs.artifact_upload_mode }}"
           echo "========================================"
 
@@ -289,33 +282,16 @@ jobs:
           rm -rf AnyKernel3/.git
 
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
-          # 上游没有对应 SUSFS 分支时自动跳过 SUSFS，避免中断构建
-          susfs_branch_missing() {
-            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-              echo "::error::上游没有 SUSFS 分支 $1"
-              exit 1
-            fi
-            echo "::warning title=SUSFS 已跳过::上游没有 SUSFS 分支 $1，已跳过 SUSFS 功能"
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "> ⏭️ **SUSFS** 已自动跳过：上游没有 $1 分支（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "SUSFS_SKIPPED=true" >> "$GITHUB_ENV"
-            rm -rf susfs4ksu
-            mkdir -p susfs4ksu
-          }
           if [ "${{ inputs.enable_susfs }}" != "true" ]; then
             echo "SUSFS 已禁用，跳过 SUSFS 仓库克隆"
             mkdir -p susfs4ksu
           elif [ "${{ inputs.ksu_variant }}" == "SukiSU-Nova" ]; then
             if ! git clone https://github.com/ShirkNeko/susfs4ksu.git -b "$SUSFS_BRANCH" 2>/dev/null; then
               echo "ShirkNeko 仓库未找到分支 $SUSFS_BRANCH，回退到 simonpunk 原版..."
-              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
-                || susfs_branch_missing "$SUSFS_BRANCH"
+              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
             fi
           else
-            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
-              || susfs_branch_missing "$SUSFS_BRANCH"
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
           fi
 
           CONFIG_FILE="config/config"
@@ -445,15 +421,6 @@ jobs:
             "${{ inputs.kernel_version }}" \
             "$ACTUAL_SUBLEVEL" \
             "$GITHUB_WORKSPACE/security_patch"; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=CVE-2026-43499 已跳过::修复链应用失败（可能不兼容当前内核子版本），已跳过该功能继续构建"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **CVE-2026-43499 修复链** 已自动跳过：修复链应用失败（可能不兼容当前内核子版本）（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "CVE_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::CVE-2026-43499 修复链应用失败"
             exit 1
           fi
@@ -744,7 +711,7 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/scripts/sukisu_compat/apply.sh" KernelSU
 
       - name: 应用 SUSFS 补丁
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}
         env:
           ANDROID_VERSION: ${{ inputs.android_version }}
@@ -757,19 +724,11 @@ jobs:
       - name: 克隆 Droidspaces 补丁仓库
         if: inputs.droidspaces != 'off'
         run: |
-          if git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git /tmp/Droidspaces-OSS; then
-            echo "DROIDSPACES_PATCHES=/tmp/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI" >> $GITHUB_ENV
-          elif [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-            echo "::warning title=Droidspaces 已跳过::Droidspaces 补丁仓库克隆失败，已跳过 Droidspaces 功能"
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "> ⏭️ **Droidspaces（虚拟化支持）** 已自动跳过：补丁仓库克隆失败（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "DROIDSPACES_SKIPPED=true" >> "$GITHUB_ENV"
-          else
+          if ! git clone --depth 1 https://github.com/ravindu644/Droidspaces-OSS.git /tmp/Droidspaces-OSS; then
             echo "::error::Droidspaces 补丁仓库克隆失败"
             exit 1
           fi
+          echo "DROIDSPACES_PATCHES=/tmp/Droidspaces-OSS/Documentation/resources/kernel-patches/GKI" >> $GITHUB_ENV
 
       - name: 备份基准 defconfig
         run: cp "$DEFCONFIG" "$DEFCONFIG.orig"
@@ -789,15 +748,6 @@ jobs:
           }
           nomount_fail() {
             nomount_cleanup
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=NoMount 已跳过::$1，已跳过 NoMount 元模块集成"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **NoMount 元模块** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "NOMOUNT_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::$1"
             exit 1
           }
@@ -818,7 +768,7 @@ jobs:
           fi
 
       - name: 集成 Droidspaces 支持
-        if: inputs.droidspaces != 'off' && env.DROIDSPACES_SKIPPED != 'true'
+        if: inputs.droidspaces != 'off'
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           KERNEL_VER="${{ inputs.kernel_version }}"
@@ -840,15 +790,6 @@ jobs:
               ;;
           esac
           if [ ! -f "$PATCH_FILE" ]; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=Droidspaces 已跳过::未找到补丁文件 $PATCH_FILE，已跳过 Droidspaces 功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **Droidspaces（虚拟化支持）** 已自动跳过：未找到补丁文件 $PATCH_FILE（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "DROIDSPACES_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::未找到 Droidspaces 补丁文件: $PATCH_FILE"
             exit 1
           fi
@@ -954,7 +895,7 @@ jobs:
           fi
 
       - name: 注入 NTSync 内核配置
-        if: inputs.droidspaces != 'off' && inputs.droidspaces_ntsync && env.DROIDSPACES_SKIPPED != 'true'
+        if: inputs.droidspaces != 'off' && inputs.droidspaces_ntsync
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           set -e
@@ -985,15 +926,6 @@ jobs:
           esac
 
           ntsync_fail() {
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=NTSync 已跳过::$1，已跳过 NTSync 功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **NTSync** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "NTSYNC_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::$1"
             exit 1
           }
@@ -1153,7 +1085,7 @@ jobs:
           echo "=== NTSync 补丁与配置注入完成 ==="
 
       - name: 应用 Unicode 绕过修复
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           if [ "${{ inputs.kernel_version }}" = "5.10" ] || [ "${{ inputs.kernel_version }}" = "5.15" ]; then
@@ -1176,19 +1108,14 @@ jobs:
         if: inputs.use_zram
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
-          # 6.12 及以上暂无上游 ZRAM 补丁源，直接跳过，避免被当成资源缺失中断构建
+          # 6.12 及以上暂无上游 ZRAM 补丁源，选择该功能时明确失败。
           case "${{ inputs.kernel_version }}" in
             6.12|6.18)
-              echo "::warning title=ZRAM 已跳过::内核 ${{ inputs.kernel_version }} 暂无 ZRAM 补丁源，已跳过 ZRAM 功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **ZRAM / LZ4KD** 已跳过：内核 ${{ inputs.kernel_version }} 暂无 ZRAM 补丁源（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "ZRAM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
+              echo "::error::内核 ${{ inputs.kernel_version }} 暂无 ZRAM 补丁源，无法启用 ZRAM 功能"
+              exit 1
               ;;
           esac
-          # 前置检查：所有补丁资源必须存在，缺失时按兼容跳过策略处理，避免修改到一半再失败
+          # 前置检查：所有补丁资源必须存在，避免修改到一半再失败
           # 版本补丁来源：SukiSU_patch/other/zram/zram_patch/<ver>
           pick_zram_patch() {
             local name="$1"
@@ -1211,29 +1138,11 @@ jobs:
           [ -n "$LZ4KD_PATCH" ] || MISSING="$MISSING SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4kd.patch"
           [ -n "$LZ4K_OPLUS_PATCH" ] || MISSING="$MISSING SukiSU_patch/other/zram/zram_patch/${{ inputs.kernel_version }}/lz4k_oplus.patch"
           if [ -n "$MISSING" ]; then
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=ZRAM 已跳过::缺少 ZRAM 补丁资源:$MISSING，已跳过 ZRAM 功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **ZRAM / LZ4KD** 已自动跳过：缺少 ZRAM 补丁资源:$MISSING（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "ZRAM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::缺少 ZRAM 补丁资源:$MISSING"
             exit 1
           fi
 
           zram_step_fail() {
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=ZRAM 已跳过::$1，已跳过 ZRAM 功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **ZRAM / LZ4KD** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "ZRAM_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::$1"
             exit 1
           }
@@ -1274,12 +1183,8 @@ jobs:
             local file="$1"
             local line="$2"
             if [ ! -f "$file" ]; then
-              if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-                echo "::error::文件不存在: $file"
-                exit 1
-              fi
-              echo "::warning title=min_kdp 已跳过::文件不存在: $file"
-              return 0
+              echo "::error::文件不存在: $file"
+              exit 1
             fi
             if ! grep -qF "$line" "$file"; then
               echo "$line" >> "$file"
@@ -1298,12 +1203,8 @@ jobs:
           ensure_line_once "$GALAXY_SYMBOL_LIST" "kdp_usecount_inc"
 
           if [ ! -f "$MIN_KDP_PATCH" ]; then
-            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-              echo "::error::补丁不存在: $MIN_KDP_PATCH"
-              exit 1
-            fi
-            echo "::warning title=min_kdp 已跳过::补丁不存在: $MIN_KDP_PATCH"
-            exit 0
+            echo "::error::补丁不存在: $MIN_KDP_PATCH"
+            exit 1
           fi
           if patch -p1 --dry-run < "$MIN_KDP_PATCH" >/dev/null 2>&1; then
             patch -p1 --no-backup-if-mismatch < "$MIN_KDP_PATCH"
@@ -1312,12 +1213,8 @@ jobs:
           fi
 
           if [ ! -f "$MIN_KDP_SRC" ]; then
-            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-              echo "::error::文件不存在: $MIN_KDP_SRC"
-              exit 1
-            fi
-            echo "::warning title=min_kdp 已跳过::文件不存在: $MIN_KDP_SRC"
-            exit 0
+            echo "::error::文件不存在: $MIN_KDP_SRC"
+            exit 1
           fi
           cp "$MIN_KDP_SRC" "$MIN_KDP_DST"
           ensure_line_once "$DRIVERS_MAKEFILE" "obj-y += min_kdp.o"
@@ -1325,7 +1222,7 @@ jobs:
           ensure_line_once "$XIAOMI_SYMBOL_LIST" "device_find_any_child"
 
       - name: 配置 ZRAM 选项
-        if: inputs.use_zram && env.ZRAM_SKIPPED != 'true'
+        if: inputs.use_zram
         run: |
           CONFIG_FILE="$DEFCONFIG"
 
@@ -1375,15 +1272,6 @@ jobs:
           bbg_fail() {
             # 回滚半成品安装，避免残留引用破坏编译
             sh /tmp/bbg_setup.sh --cleanup >/dev/null 2>&1 || true
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=BBG 已跳过::$1，已跳过 BBG 基带保护功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **BBG 基带保护** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "BBG_SKIPPED=true" >> "$GITHUB_ENV"
-              exit 0
-            fi
             echo "::error::$1"
             exit 1
           }
@@ -1413,15 +1301,6 @@ jobs:
           set -euo pipefail
 
           net_fail() {
-            if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-              echo "::warning title=网络增强 已跳过::$1，已跳过 网络增强功能"
-              if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                echo "" >> "$GITHUB_STEP_SUMMARY"
-                echo "> ⏭️ **网络增强 (BBRv3 / IPSet / Qdisc / CIFS)** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-              fi
-              echo "NET_ENHANCE_SKIPPED=true" >> "${GITHUB_ENV:-/dev/null}"
-              exit 0
-            fi
             echo "::error::$1"
             exit 1
           }
@@ -1608,15 +1487,6 @@ jobs:
           sed -i '\|obj-$(CONFIG_REKERNEL) += rekernel/|d' common/drivers/Makefile 2>/dev/null || true
           sed -i '/^CONFIG_REKERNEL=y$/d; /^CONFIG_REKERNEL_NETWORK=y$/d' "$DEFCONFIG" 2>/dev/null || true
 
-          if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-            echo "::warning title=Re-Kernel 已跳过::Re-Kernel 集成失败（仓库不可用或源码不适配当前内核），已回滚并跳过该功能"
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "> ⏭️ **Re-Kernel** 已自动跳过：集成失败（仓库不可用或源码不适配当前内核），已回滚（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "REKERNEL_SKIPPED=true" >> "$GITHUB_ENV"
-            exit 0
-          fi
           echo "::error::Re-Kernel 集成失败"
           exit 1
 
@@ -1648,11 +1518,11 @@ jobs:
           fi
 
           # SukiSU-Nova main 分支把 KSU_SUSFS 的 Kconfig 默认值设为 y；未集成 SUSFS
-          # （android17-6.18 没有 SUSFS 分支，或选择了禁用 SUSFS、SUSFS 自动跳过）
+          # （android17-6.18 没有 SUSFS 分支，或选择了禁用 SUSFS）
           # 时必须显式关闭，否则 kernel_includes.h 会引用不存在的 <linux/susfs.h>
           # 导致编译失败。仅在 KernelSU 源码确实声明该选项时写入，避免 fragment 校验失败。
           if [ "${{ inputs.ksu_variant }}" = "SukiSU-Nova" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ] \
-            && { [ "${{ inputs.enable_susfs }}" != "true" ] || [ "$SUSFS_SKIPPED" = "true" ]; }; then
+            && [ "${{ inputs.enable_susfs }}" != "true" ]; then
             if grep -qsE '^[[:space:]]*config[[:space:]]+KSU_SUSFS([[:space:]]|$)' KernelSU/kernel/Kconfig; then
               echo "# CONFIG_KSU_SUSFS is not set" >> "$DEFCONFIG"
             fi
@@ -1668,12 +1538,6 @@ jobs:
             if [ "${{ inputs.use_kpm }}" == "true" ]; then
               if grep -RqsE '^[[:space:]]*config[[:space:]]+KPM([[:space:]]|$)' common KernelSU 2>/dev/null; then
                 echo "CONFIG_KPM=y" >> "$DEFCONFIG"
-              elif [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-                echo "::warning title=KPM 已跳过::当前 KernelSU 代码未声明 CONFIG_KPM，已跳过 KPM 功能"
-                if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-                  echo "" >> "$GITHUB_STEP_SUMMARY"
-                  echo "> ⏭️ **KPM** 已自动跳过：当前 KernelSU 代码未声明 CONFIG_KPM（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-                fi
               else
                 echo "错误: 已请求启用 KPM，但当前 KernelSU 代码未声明 CONFIG_KPM" >&2
                 exit 1
@@ -1723,7 +1587,7 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
       - name: 添加 SUSFS 配置
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
           CONFIG_KSU_SUSFS=y

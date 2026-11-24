@@ -30,14 +30,6 @@ set -eo pipefail
 KSU_DIR="${1:-KernelSU}"
 
 fail() {
-  if [ "$SKIP_INCOMPATIBLE" = "true" ]; then
-    echo "::warning title=SukiSU-Nova 兼容补丁已跳过::$1"
-    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-      echo "" >> "$GITHUB_STEP_SUMMARY"
-      echo "> ⏭️ **SukiSU-Nova API 兼容补丁** 已自动跳过：$1（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-    fi
-    exit 0
-  fi
   echo "::error::$1"
   exit 1
 }
