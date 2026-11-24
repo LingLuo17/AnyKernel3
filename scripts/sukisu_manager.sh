@@ -3,9 +3,9 @@ set -euo pipefail
 
 CHANNEL="${1:-release}"
 KSU_DIR="${2:-KernelSU}"
-# 管理器 APK 已迁到 cnb.cool/shirkneko/sukisu-result（zako 上的 Release 不再带 APK 资产）；
+# 上游 Release 指向 sukisu-release，APK 不再发布到旧的 sukisu-result 仓库。
 # 该端点需 Accept: application/json 才返回 JSON，字段与 Gitea 兼容
-API="https://cnb.cool/shirkneko/sukisu-result/-/releases"
+API="https://cnb.cool/shirkneko/sukisu-release/-/releases"
 ACCEPT="Accept: application/json"
 
 case "$CHANNEL" in
@@ -15,9 +15,13 @@ esac
 
 RELEASE=""
 if [ "$ROLLING" = false ]; then
-  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API/latest")
+  RELEASE=$(curl -fsSL --retry 3 --max-time 30 -H "$ACCEPT" "$API/latest") || {
+    STATUS=$?
+    [ "$STATUS" -eq 22 ] || exit "$STATUS"
+    RELEASE=""
+  }
   if [ -z "$RELEASE" ]; then
-    echo "::notice::SukiSU-Nova 没有正式版 APK，改用 manager-ci"
+    echo "::notice::未获取到正式版，已回退到 manager-ci 测试版"
     ROLLING=true
   fi
 fi
