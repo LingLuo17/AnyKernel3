@@ -289,33 +289,25 @@ jobs:
           rm -rf AnyKernel3/.git
 
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
-          # 上游没有对应 SUSFS 分支时自动跳过 SUSFS，避免中断构建
-          susfs_branch_missing() {
-            if [ "$SKIP_INCOMPATIBLE" != "true" ]; then
-              echo "::error::上游没有 SUSFS 分支 $1"
-              exit 1
-            fi
-            echo "::warning title=SUSFS 已跳过::上游没有 SUSFS 分支 $1，已跳过 SUSFS 功能"
-            if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "> ⏭️ **SUSFS** 已自动跳过：上游没有 $1 分支（构建未中断）" >> "$GITHUB_STEP_SUMMARY"
-            fi
-            echo "SUSFS_SKIPPED=true" >> "$GITHUB_ENV"
-            rm -rf susfs4ksu
-            mkdir -p susfs4ksu
-          }
+          # SUSFS is required when enabled, even with compatibility skipping.
           if [ "${{ inputs.enable_susfs }}" != "true" ]; then
             echo "SUSFS 已禁用，跳过 SUSFS 仓库克隆"
             mkdir -p susfs4ksu
-          elif [ "${{ inputs.ksu_variant }}" == "SukiSU-Nova" ]; then
-            if ! git clone https://github.com/ShirkNeko/susfs4ksu.git -b "$SUSFS_BRANCH" 2>/dev/null; then
-              echo "ShirkNeko 仓库未找到分支 $SUSFS_BRANCH，回退到 simonpunk 原版..."
-              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
-                || susfs_branch_missing "$SUSFS_BRANCH"
-            fi
           else
-            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" \
-              || susfs_branch_missing "$SUSFS_BRANCH"
+            if [ "${{ inputs.ksu_variant }}" == "SukiSU-Nova" ]; then
+              if ! git clone https://github.com/ShirkNeko/susfs4ksu.git -b "$SUSFS_BRANCH"; then
+                echo "ShirkNeko 仓库分支 $SUSFS_BRANCH 不可用，回退到 simonpunk 原版..."
+                git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" || {
+                  echo "::error::启用 SUSFS 时必须有可用的 $SUSFS_BRANCH 分支"
+                  exit 1
+                }
+              fi
+            else
+              git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH" || {
+                echo "::error::启用 SUSFS 时必须有可用的 $SUSFS_BRANCH 分支"
+                exit 1
+              }
+            fi
           fi
 
           CONFIG_FILE="config/config"
@@ -744,7 +736,7 @@ jobs:
         run: bash "$GITHUB_WORKSPACE/scripts/sukisu_compat/apply.sh" KernelSU
 
       - name: 应用 SUSFS 补丁
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}
         env:
           ANDROID_VERSION: ${{ inputs.android_version }}
@@ -1153,7 +1145,7 @@ jobs:
           echo "=== NTSync 补丁与配置注入完成 ==="
 
       - name: 应用 Unicode 绕过修复
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         working-directory: ${{ env.KERNEL_ROOT }}/common
         run: |
           if [ "${{ inputs.kernel_version }}" = "5.10" ] || [ "${{ inputs.kernel_version }}" = "5.15" ]; then
@@ -1652,7 +1644,7 @@ jobs:
           # 时必须显式关闭，否则 kernel_includes.h 会引用不存在的 <linux/susfs.h>
           # 导致编译失败。仅在 KernelSU 源码确实声明该选项时写入，避免 fragment 校验失败。
           if [ "${{ inputs.ksu_variant }}" = "SukiSU-Nova" ] && [ "${{ inputs.ksu_mode }}" != "禁用KSU" ] \
-            && { [ "${{ inputs.enable_susfs }}" != "true" ] || [ "$SUSFS_SKIPPED" = "true" ]; }; then
+            && [ "${{ inputs.enable_susfs }}" != "true" ]; then
             if grep -qsE '^[[:space:]]*config[[:space:]]+KSU_SUSFS([[:space:]]|$)' KernelSU/kernel/Kconfig; then
               echo "# CONFIG_KSU_SUSFS is not set" >> "$DEFCONFIG"
             fi
@@ -1723,7 +1715,7 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
 
       - name: 添加 SUSFS 配置
-        if: inputs.enable_susfs && env.SUSFS_SKIPPED != 'true'
+        if: inputs.enable_susfs
         run: |
           cat >> "$DEFCONFIG" << 'EOF'
           CONFIG_KSU_SUSFS=y
