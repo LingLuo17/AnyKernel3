@@ -1379,26 +1379,55 @@ jobs:
             *) BBR3_PATCH="" ;;
           esac
 
+          # LTS 分支的 stable 回移会使补丁上下文漂移，优先使用同名 LTS 补丁。
+          if [ -n "$BBR3_PATCH" ] && [ "${{ inputs.os_patch_level }}" = "lts" ] && [ -f "${BBR3_PATCH%.patch}-lts.patch" ]; then
+            BBR3_PATCH="${BBR3_PATCH%.patch}-lts.patch"
+          fi
+
           # android16-6.12 无 backport 补丁，仅保留基线 BBR v1
           if [ -n "$BBR3_PATCH" ]; then
             [ -f "$BBR3_PATCH" ] || net_fail "BBRv3 补丁不存在：${BBR3_PATCH#"$KERNEL_PATCHES"/}"
+            echo "[*] 使用 BBRv3 补丁: $(basename "$BBR3_PATCH")"
+
+            # 6.1.192 起的 LTS 在 obsolete 块前新增 tcp_min_rcvbuf，暂无对应 LTS 补丁时
+            # 临时移开该行，应用后原样恢复，避免放宽上下文匹配引入错误。
+            SYSCTL_C="net/ipv4/sysctl_net_ipv4.c"
+            MINRCV_LINE=""
+            MINRCV_REMOVED=false
+            restore_minrcv() {
+              if [ "$MINRCV_REMOVED" = true ] && ! grep -qF "$MINRCV_LINE" "$SYSCTL_C"; then
+                sed -i "0,/^\/\* obsolete \*\/$/s||${MINRCV_LINE}\n/* obsolete */|" "$SYSCTL_C"
+                grep -qF "$MINRCV_LINE" "$SYSCTL_C" || net_fail "还原 tcp_min_rcvbuf 失败"
+              fi
+            }
+            if ! patch -p1 --dry-run --forward < "$BBR3_PATCH" >/dev/null 2>&1 \
+              && grep -A1 '^static int tcp_min_rcvbuf = [0-9]*;$' "$SYSCTL_C" 2>/dev/null | sed -n 2p | grep -q '^$'; then
+              MINRCV_LINE=$(grep -m1 '^static int tcp_min_rcvbuf = [0-9]*;$' "$SYSCTL_C")
+              sed -i '/^static int tcp_min_rcvbuf = [0-9]*;$/{N;d}' "$SYSCTL_C"
+              MINRCV_REMOVED=true
+              echo "[*] 临时移走 tcp_min_rcvbuf 以匹配月度补丁上下文"
+            fi
+
             if patch -p1 --dry-run --forward < "$BBR3_PATCH" >/dev/null 2>&1; then
               patch -p1 --no-backup-if-mismatch < "$BBR3_PATCH"
+              restore_minrcv
               echo "[+] BBRv3 补丁已应用"
-            elif patch -p1 --dry-run --forward -F 3 < "$BBR3_PATCH" >/dev/null 2>&1; then
-              # LTS 分支会持续合入上游 stable 提交（如 sysctl_net_ipv4.c 的
-              # tcp_min_rcvbuf），补丁的上下文行随之漂移。fuzz 3 只放宽上下文
-              # 匹配，hunk 内容仍须原样落位，可安全吸收这类偏移。
-              patch -p1 --no-backup-if-mismatch -F 3 < "$BBR3_PATCH"
-              echo "[+] BBRv3 补丁已应用（LTS 上下文漂移，fuzz 3）"
-            elif grep -q '^config TCP_CONG_BBR3' net/ipv4/Kconfig; then
+            elif grep -q '^config TCP_CONG_BBR3' net/ipv4/Kconfig && [ -f net/ipv4/tcp_bbr3.c ]; then
+              restore_minrcv
               echo "[*] BBRv3 补丁此前已应用，跳过"
+            elif [ "${{ inputs.os_patch_level }}" = "lts" ]; then
+              # LTS 补丁上下文失配时不写入部分内容，回退到基线 BBR v1 继续构建。
+              restore_minrcv
+              echo "::warning title=BBRv3::LTS 分支上下文已漂移，$(basename "$BBR3_PATCH") 无法应用，本次构建回退到 BBR v1"
+              BBR3_PATCH=""
             else
+              restore_minrcv
               net_fail "BBRv3 补丁应用失败（${AVER}-${KVER}）"
             fi
-            # 防止 fuzz 应用时漏掉新增文件/配置项后继续编译
-            [ -f net/ipv4/tcp_bbr3.c ] || net_fail "BBRv3 补丁应用后缺少 net/ipv4/tcp_bbr3.c"
-            grep -q '^config TCP_CONG_BBR3' net/ipv4/Kconfig || net_fail "BBRv3 补丁应用后缺少 TCP_CONG_BBR3 配置项"
+            if [ -n "$BBR3_PATCH" ]; then
+              [ -f net/ipv4/tcp_bbr3.c ] || net_fail "BBRv3 补丁应用后缺少 net/ipv4/tcp_bbr3.c"
+              grep -q '^config TCP_CONG_BBR3' net/ipv4/Kconfig || net_fail "BBRv3 补丁应用后缺少 TCP_CONG_BBR3 配置项"
+            fi
           else
             echo "[*] ${AVER}-${KVER} 无 BBRv3 backport，使用 BBR v1"
           fi
@@ -1411,7 +1440,7 @@ jobs:
           fi
 
           # 5.10 缺少 proc_dou8vec_minmax（BBRv3 依赖的 5.15+ sysctl API），补两个前置补丁
-          if [ "$KVER" = "5.10" ] && ! grep -qF 'int proc_dou8vec_minmax(' include/linux/sysctl.h 2>/dev/null; then
+          if [ -n "$BBR3_PATCH" ] && [ "$KVER" = "5.10" ] && ! grep -qF 'int proc_dou8vec_minmax(' include/linux/sysctl.h 2>/dev/null; then
             for prepatch in sysctl_add_proc_dou8vec_minmax sysctl_fix_data-races_in_proc_dou8vec_minmax; do
               if patch -p1 --dry-run < "$BBR3_DIR/$prepatch.patch" >/dev/null 2>&1; then
                 patch -p1 --no-backup-if-mismatch < "$BBR3_DIR/$prepatch.patch"
@@ -1440,10 +1469,15 @@ jobs:
             IP_SET_HASH_NETPORTNET IP_SET_HASH_NET IP_SET_HASH_NETNET \
             IP_SET_HASH_NETPORT IP_SET_HASH_NETIFACE IP_SET_LIST_SET \
             NETFILTER_XT_MATCH_ADDRTYPE NETFILTER_XT_SET NETFILTER_XT_TARGET_LOG \
-            NETFILTER_XT_MATCH_RECENT IP6_NF_NAT IP6_NF_TARGET_MASQUERADE; do
+            NETFILTER_XT_MATCH_RECENT IP6_NF_NAT IP6_NF_TARGET_MASQUERADE \
+            IP_NF_TARGET_REJECT IP6_NF_TARGET_REJECT; do
             set_config "CONFIG_$cfg" y
           done
           set_config CONFIG_IP_SET_MAX 65534
+          # 5.10 直接使用 defconfig 值可能未生效，在源码中补上相同上限。
+          if [ "$KVER" = "5.10" ]; then
+            sed -i 's/CONFIG_IP_SET_MAX/65534/g' net/netfilter/ipset/ip_set_core.c
+          fi
 
           # TCP 拥塞控制算法：已打 BBRv3 补丁的版本默认 bbr3，其余默认 bbr
           for cfg in TCP_CONG_ADVANCED TCP_CONG_BBR TCP_CONG_CUBIC \
