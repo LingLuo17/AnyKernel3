@@ -690,16 +690,8 @@ jobs:
 
           SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
           echo "克隆 SUSFS (分支: $SUSFS_BRANCH)..."
-          if [ "${{ inputs.ksu_variant }}" == "SukiSU-Nova" ]; then
-            if ! clone_susfs_with_retry https://github.com/ShirkNeko/susfs4ksu.git; then
-              echo "::warning::ShirkNeko 仓库克隆失败（分支 $SUSFS_BRANCH），回退到 simonpunk 原版..."
-              clone_susfs_with_retry https://gitlab.com/simonpunk/susfs4ksu.git \
-                || susfs_clone_failed "$SUSFS_BRANCH"
-            fi
-          else
-            clone_susfs_with_retry https://gitlab.com/simonpunk/susfs4ksu.git \
-              || susfs_clone_failed "$SUSFS_BRANCH"
-          fi
+          clone_susfs_with_retry https://gitlab.com/simonpunk/susfs4ksu.git \
+            || susfs_clone_failed "$SUSFS_BRANCH"
 
           CONFIG_FILE="config/config"
           if [ -f "$CONFIG_FILE" ]; then
