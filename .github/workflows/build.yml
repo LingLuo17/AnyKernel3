@@ -628,11 +628,12 @@ jobs:
                 && grep -q "^KSU_EXPECTED_HASH2 := " KernelSU/kernel/Kbuild \
                 && grep -q "^KSU_SECOND_SIGNATURE_RELEASE := 1" KernelSU/kernel/Kbuild \
                 || { echo "::error::Kbuild 注入失败（锚点行缺失，FinaSU 上游 Kbuild 结构可能已变化）"; exit 1; }
-              # 与 SukiSU-Nova/BakaSU 一致：内核完整版本的 @<branch> 固定为品牌名
-              # （CI 检出的是 detached 提交，abbrev-ref 显示 @HEAD）；
-              # 必须在上方证书注入（awk 重写 Kbuild）之后调用
+              # 与 SukiSU-Nova/BakaSU 一致：将内核完整版本中的 @<branch>
+              # 固定为 @TheGreatUnknown-One；CI 的 detached 检出会显示 @HEAD。
+              # 必须在上方证书注入（awk 重写 Kbuild）之后调用。
               bash "$GITHUB_WORKSPACE/scripts/ksu_post_setup.sh" KernelSU finasu
               ;;
+
             *)
               echo "未知变体: ${{ inputs.ksu_variant }}" >&2
               exit 1
